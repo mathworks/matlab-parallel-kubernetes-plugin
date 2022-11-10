@@ -29,7 +29,7 @@ iCheckOptional(cluster, "Namespace", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeConfig", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeContext", @iCheckCharOrString);
 iCheckOptional(cluster, "Timeout", @iCheckInt);
-iCheckOptional(cluster, "MountMatlab", @iCheckLogical);
+iCheckOptional(cluster, "MountMatlabFromCluster", @iCheckLogical);
 iCheckOptional(cluster, "LicenseServer", @iCheckCharOrString);
 end
 

@@ -83,9 +83,9 @@ spec:
         - name: JOB_UID
           value: {{ .Values.jobUID }}
         - name: TIMEOUT
-          value: {{ .Values.timeout | default 300 | quote }}
+          value: {{ .Values.timeout | quote }}
         - name: TASK_UIDS
-          value: {{ join "," .Values.taskUIDs }}
+          value: {{ slice .Values.taskUIDs 1 | join "," }}
         - name: LOGFILE
           value: {{ .Values.logfile }}
         - name: HELM

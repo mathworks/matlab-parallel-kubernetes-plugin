@@ -1,7 +1,5 @@
 # Parallel Computing Toolbox plugin for MATLAB Parallel Server with Kubernetes
 
-[![View on File Exchange - TODO replace this link with kubernetes](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://www.mathworks.com/matlabcentral/fileexchange/72125)
-
 Parallel Computing Toolbox&trade; provides the `Generic` cluster type for submitting MATLAB&reg; jobs to a cluster running a third-party scheduler.
 `Generic` uses a set of plugin scripts to define how your machine running MATLAB or Simulink&reg; communicates with your scheduler.
 You can customize the plugin scripts to configure how MATLAB interacts with the scheduler to best suit your cluster's setup and to support custom submission options.
@@ -311,7 +309,7 @@ Namespace                 | String   | The Kubernetes namespace to use. If this 
 KubeConfig                | String   | The location of the config file used by `kubectl` to access your cluster. For more information, see the [Kubernetes config file documentation](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/). If this property is not specified, the default location (`$HOME/.kube/config`) is used.
 KubeContext               | String   | The context within your Kubernetes config file to use if you have multiple clusters or user configurations within that file. For more information, see the [Kubernetes context documentation](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/). If this property is not specified, the default context is used.
 LicenseServer             | String   | The port and hostname of a machine running a Network License Manager in the format port@hostname.
-Timeout                   | Number   | The amount of time in seconds to wait for pods to load in a pool or SPMD job. By default, this is set to 600 seconds, but can increase it if you have a slow network connection.
+Timeout                   | Number   | The amount of time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. By default, this property is set to 600 seconds.
 
 If the cluster administrator installed specific versions of the Helm and Kubectl executables on the cluster, set the following additional properties:
 
@@ -405,7 +403,25 @@ wait(job);
 results = fetchOutputs(job)
 ```
 
-### Open a Parallel Pool
+### Submit Work for Batch Processing with a Parallel Pool
+
+You can use the `batch` command to create a parallel pool by using the `'Pool'` name-value pair argument.
+
+```matlab
+% Create and submit a batch pool job to the cluster
+job = batch(
+    c, ... % cluster object created using parcluster
+    @sqrt, ... % function/script to run
+    1, ... % number of output arguments
+    {[64 100]}, ... % input arguments
+    'Pool', 3); ... % use a parallel pool with three workers
+```
+
+Once the first worker has started running on the Kubernetes cluster, the worker will wait up to the number of seconds specified in `cluster.AdditionalProperties.Timeout` (default 600 seconds) for the remaining workers to start running before failing.
+If your cluster does not have enough resources to start all of the workers before the timeout, your batch pool job will fail.
+In this case, use fewer workers for your batch pool job, increase the timeout, or wait until your Kubernetes cluster has more resources available.
+
+### Open an Interactive Parallel Pool
 
 A parallel pool (parpool) is a group of MATLAB workers that you can interactively run work on.
 Parallel pools are only supported if the Kubernetes cluster is running on the same network as your computer.

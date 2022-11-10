@@ -9,6 +9,7 @@ function setJobData(cluster, job, jobUID, releaseNames, podNames)
 insertJobData(cluster, job, "HelmReleases", releaseNames);
 insertJobData(cluster, job, "JobUID", jobUID);
 insertJobData(cluster, job, "HelmUninstalled", false);
+insertJobData(cluster, job, "Errors", {});
 
 set(job.Tasks, 'SchedulerID', podNames);
 end

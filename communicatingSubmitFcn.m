@@ -32,8 +32,8 @@ cmd = appendHelmSetting(cmd, "numberOfTasks", ...
 cmd = appendHelmSetting(cmd, "serviceAccountName", ...
     lower(sprintf("%s-serviceaccount-%s", releaseName, jobUID)));
 cmd = appendHelmSetting(cmd, "logfile", getRelativeLogLocation(cluster, job));
+cmd = appendHelmSetting(cmd, "timeout", getTimeout(cluster));
 
-cmd = appendOptionalHelmSetting(cmd, cluster, "Timeout", "timeout");
 cmd = appendOptionalHelmSetting(cmd, cluster, "HelmDir", "clusterHelmDir");
 cmd = appendOptionalHelmSetting(cmd, cluster, "KubectlDir", "clusterKubectlDir");
 
