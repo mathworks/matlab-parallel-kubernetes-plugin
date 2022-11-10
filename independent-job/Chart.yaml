@@ -1,0 +1,7 @@
+# Copyright 2022 The MathWorks, Inc.
+apiVersion: v2
+name: independent-job
+description: Template manifest for independent MATLAB job
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

@@ -1,0 +1,113 @@
+# Copyright 2022 The MathWorks, Inc.
+{{- range $index, $taskLoc := .Values.parallelServer.taskLocations }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  {{- $taskUID := (index $.Values.taskUIDs $index) | quote | lower }}
+  name: {{ $taskUID }}
+  labels:
+    jobUID: {{ $.Values.jobUID }}
+    taskUID: {{ $taskUID }}
+spec:
+  backoffLimit: 0
+  {{- if ($.Values.automaticJobCleanup | default true) }}
+  ttlSecondsAfterFinished: {{ $.Values.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      name: independent-matlab-job-pod
+      labels:
+          jobUID: {{ $.Values.jobUID }}
+          taskUID: {{ $taskUID }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: {{ $.Values.parallelServer.userID }}
+        runAsGroup: {{ $.Values.parallelServer.groupID }}
+      containers:
+      - name: independent-matlab-job
+        image: {{ $.Values.image | quote }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy | quote }}
+        args:
+        - /scripts/independentJobWrapper.sh
+        resources:
+          requests:
+            cpu: {{ $.Values.numThreads }}
+
+        # Set locations in the container of mounted directories
+        {{- $containerJobStorageLocation := "/job_storage" }}
+        {{- $containerMatlabRoot := "/matlab" }}
+        volumeMounts:
+        - name: data-volume
+          mountPath: {{ $containerJobStorageLocation }}
+        {{- if $.Values.mountMatlab }}
+        - name: matlab-volume
+          mountPath: {{ $containerMatlabRoot }}
+          readOnly: true
+        {{- end }}
+
+        env:
+        - name: PARALLEL_SERVER_DECODE_FUNCTION
+          value: {{ $.Values.parallelServer.decodeFunction | quote }}
+        - name: PARALLEL_SERVER_STORAGE_CONSTRUCTOR
+          value: {{ $.Values.parallelServer.storageConstructor | quote }}
+        - name: PARALLEL_SERVER_STORAGE_LOCATION
+          value: {{ $containerJobStorageLocation }}
+        - name: PARALLEL_SERVER_JOB_LOCATION
+          value: {{ $.Values.parallelServer.jobLocation | quote }}
+        - name: PARALLEL_SERVER_TASK_LOCATION
+          value: {{ . | quote }}
+        - name: PARALLEL_SERVER_MATLAB_ARGS
+          value: {{ $.Values.parallelServer.matlabArgs | quote }}
+        - name: PARALLEL_SERVER_USER_ID
+          value: {{ $.Values.parallelServer.userID | quote }}
+        - name: PARALLEL_SERVER_DEBUG
+          value: {{ $.Values.parallelServer.debug | quote }}
+        - name: PARALLEL_SERVER_USERNAME
+          value: {{ $.Values.username }}
+        - name: MATLAB_ROOT
+          value: {{ $containerMatlabRoot }}
+        - name: LOGFILE
+          value: {{ index $.Values.taskLogs $index }}
+        - name: MLM_LICENSE_FILE
+          value: {{ $.Values.licenseServer | quote }}
+        - name: MLM_WEB_LICENSE
+          value: {{ $.Values.mlmWebLicense | quote }}
+        - name: MLM_WEB_ID
+          value: {{ $.Values.mlmWebID | quote }}
+        - name: PARALLEL_SERVER_LICENSE_NUMBER
+          value: {{ $.Values.licenseNumber | quote }}
+        {{- if $.Values.userCredSecretName }}
+        - name: MLM_WEB_USER_CRED
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.userCredSecretName }}
+              key: {{ $.Values.userCredKeyName }}
+        {{- end }}
+
+      # Set locations of directories to be mounted onto the container; these
+      # are either locations on the cluster nodes, or NFS servers
+      volumes:
+      - name: data-volume
+        {{- if $.Values.jobStorageServer }}
+        nfs:
+          server: {{ $.Values.jobStorageServer }}
+        {{- else }}
+        hostPath:
+          type: Directory
+        {{- end }}
+          path: {{ $.Values.clusterJobStorageLocation | quote }}
+
+      {{- if $.Values.mountMatlab }}
+      - name: matlab-volume
+        {{- if $.Values.matlabServer }}
+        nfs:
+          server: {{ $.Values.matlabServer }}
+        {{- else }}
+        hostPath:
+          type: Directory
+        {{- end }}
+          path: {{ $.Values.clusterMatlabRoot | quote }}
+      {{- end }}
+---
+{{- end }}
