@@ -1,6 +1,6 @@
 # Copyright 2022 The MathWorks, Inc.
 # Version 0.1
-ARG MATLAB_RELEASE=r2022a
+ARG MATLAB_RELEASE=r2022b
 FROM mathworks/matlab-deps:${MATLAB_RELEASE}
 LABEL maintainer="The MathWorks"
 
