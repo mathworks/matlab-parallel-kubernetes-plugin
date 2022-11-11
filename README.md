@@ -1,6 +1,6 @@
 # Parallel Computing Toolbox plugin for MATLAB Parallel Server with Kubernetes
 
-[![View Plugin for MATLAB Parallel Server with Kubernetes on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://mathworks.com/matlabcentral/fileexchange/120243-plugin-for-matlab-parallel-server-with-kubernetes)
+[![View Parallel Computing Toolbox Plugin for Kubernetes on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://mathworks.com/matlabcentral/fileexchange/120243-parallel-computing-toolbox-plugin-for-kubernetes)
 
 Parallel Computing Toolbox&trade; provides the `Generic` cluster type for submitting MATLAB&reg; jobs to a cluster running a third-party scheduler.
 `Generic` uses a set of plugin scripts to define how your machine running MATLAB or Simulink&reg; communicates with your scheduler.
