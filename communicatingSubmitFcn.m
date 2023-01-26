@@ -5,6 +5,7 @@ function communicatingSubmitFcn(cluster, job, environmentProperties)
 
 checkExecutables();
 checkClusterProperties(cluster);
+iCheckResourceQuotas(cluster, job, environmentProperties);
 
 % Generate helm release name for each task
 jobUID = generateUID();
@@ -12,6 +13,27 @@ jobUID = generateUID();
 
 iSubmitToPrimaryWorker(releaseName, jobUID, podNames, cluster, job, environmentProperties);
 setJobData(cluster, job, jobUID, podNames, podNames);
+end
+
+function iCheckResourceQuotas(cluster, job, environmentProperties)
+% Check that the NumWorkers and NumThreads requested for this job do not
+% exceed the cluster's CPU and pod resource quotas
+[nPods, nCPUs] = getResourceQuotas(cluster, job);
+namespace = cluster.getJobClusterData(job).Namespace;
+
+requestedWorkers = environmentProperties.NumberOfTasks;
+if requestedWorkers > nPods
+    error('parallelexamples:GenericKubernetes:NumWorkersExceedsPodQuota', ...
+        'Job requires %d workers, but the namespace "%s" has a pod quota of %d.', ...
+        requestedWorkers, namespace, nPods);
+end
+
+requestedCPUs = requestedWorkers * cluster.NumThreads;
+if requestedCPUs > nCPUs
+    error('parallelexamples:GenericKubernetes:JobExceedsCPUQuota', ...
+        'Job with %d workers and %d threads requires %d CPUs, but the namespace "%s" has a CPU quota of %d.', ...
+        cluster.NumThreads, requestedCPUs, requestedCPUs, namespace, nCPUs);
+end
 end
 
 function iSubmitToPrimaryWorker(releaseName, jobUID, podNames, cluster, job, environmentProperties)
