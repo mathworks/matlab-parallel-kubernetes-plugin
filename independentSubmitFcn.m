@@ -1,31 +1,14 @@
 function independentSubmitFcn(cluster, job, environmentProperties)
 % Submit independent MATLAB job to a Kubernetes cluster.
 
-% Copyright 2022 The MathWorks, Inc.
-
-checkExecutables();
-checkClusterProperties(cluster);
-iCheckResourceQuotas(cluster, job);
+% Copyright 2022-2023 The MathWorks, Inc.
+preSubmitChecks(cluster, job, environmentProperties);
 
 jobUID = generateUID();
-[releaseName, podNames] = createResourceNames(environmentProperties, job, jobUID);
+[releaseName, podNames] = createResourceNames(environmentProperties, jobUID);
 
 iSubmitJob(releaseName, jobUID, podNames, cluster, job, environmentProperties);
-
 setJobData(cluster, job, jobUID, releaseName, podNames);
-
-end
-
-function iCheckResourceQuotas(cluster, job)
-% Check that the NumThreads requested for this job does not exceed the
-% cluster's CPU resource quota
-[~, nCPUs] = getResourceQuotas(cluster, job);
-namespace = cluster.getJobClusterData(job).Namespace;
-if cluster.NumThreads > nCPUs
-    error('parallelexamples:GenericKubernetes:NumThreadsExceedsCPUQuota', ...
-        'Job requires %d CPUs (NumThreads), but the namespace "%s" has a CPU quota of %d.', ...
-        cluster.NumThreads, namespace, nCPUs);
-end
 end
 
 function iSubmitJob(releaseName, jobUID, podNames, cluster, job, environmentProperties)

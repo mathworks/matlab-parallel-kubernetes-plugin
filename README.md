@@ -20,7 +20,12 @@ To run MATLAB Parallel Server workers on the Kubernetes cluster as MATLAB users 
 ### Shared Job Storage Location Requirement
 
 MATLAB Parallel Server with Kubernetes requires both your computer and the Kubernetes cluster to have read and write access to a shared directory.
-You must either make this directory available via an NFS server or mount it on each node of the cluster.
+You must make this directory available to the cluster via a Kubernetes PersistentVolumeClaim.
+
+### Cluster access requirement
+
+MATLAB Parallel Server with Kubernetes requires your computer to have access to the cluster via Kubectl.
+You must have the ability to get, list, create and delete Kubernetes pods, jobs and secrets.
 
 ### Limitations
 
@@ -48,36 +53,75 @@ Alternatively, to clone this repository to your computer with git installed, run
 git clone https://github.com/mathworks/matlab-parallel-kubernetes-plugin
 ```
 
-#### 2. Set up a Job Storage Location
+#### 2. Create a Kubernetes Namespace and Limit Its Resources
 
-You must ensure that each MATLAB Parallel Server user has read and write access to a directory on their computer that is shared with the cluster.
+Kubernetes uses namespaces to separate groups of resources.
+For more information, see the [Kubernetes namespace documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/).
+It is recommended that you run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that they are separate from other resources on the cluster.
+
+If users do not specify a custom namespace in the cluster profile, MATLAB Parallel Server workers will attempt to run in a namespace called `matlab`.
+MATLAB will attempt to create the `matlab` namespace if it does not already exist.
+If MATLAB cannot create the `matlab` namespace, the workers will run in the `default` namespace.
+
+To create a custom namespace, run
+```
+kubectl create namespace my-namespace
+```
+where `my-namespace` is the name you have chosen.
+
+##### Limiting Kubernetes Pods in a Namespace
+
+Within a Kubernetes namespace, you can limit the number of pods that may run simultaneously.
+Each MATLAB Parallel Server worker requires one pod.
+By limiting pods, you can limit the number of MATLAB Parallel Server workers that run at any one time.
+If your MATLAB Parallel Server license has less than 200 workers, you should limit the number of pods to the number of MATLAB Parallel Server workers by running:
+```
+kubectl create resourcequota quota-name --namespace my-namespace --hard pods=numWorkers
+```
+where `quota-name` is the name of the created resource quota, `my-namespace` is the namespace you are using and `numWorkers` is the number of MATLAB Parallel Server workers on your license.
+
+#### 3. Set up a PersistentVolumeClaim for job storage
+
+You must ensure that each MATLAB Parallel Server user has read and write access to a directory on their computer that is shared with the cluster via a PersistentVolumeClaim.
 The account the user has access to on the cluster must also have read and write access to that directory.
-To share the job storage location with the cluster, select from these options:
 
-1. Make the directory available via an NFS server that is accessible to the cluster.
-For example, you could create your own NFS server or use an Amazon EFS instance.
-With this option, you do not need to mount to the cluster yourself.
-Share the server hostname and the location of the directory within the server with each user.
+You can create a Kubernetes PersistentVolumeClaim either statically from a PersistentVolume or dynamically from a StorageClass.
+For more information, see the [Kubernetes PersistentVolume documentation](https://https://kubernetes.io/docs/concepts/storage/persistent-volumes/).
 
-2. Manually mount the directory on each node of the cluster.
-You must use the same location on each node, although the shared directory can be a different location on the user's computer.
-Share the location of the directory on the nodes with each user.
+For example, if you have an on-premise Kubernetes cluster, you can create a PersistentVolume from an NFS server that is visible to your cluster.
+Alternatively, if you have a Kubernetes cluster in AWS, you can create a StorageClass to provision storage from an EFS instance.
+For details, see the [Amazon EFS CSI driver documentation](https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html).
+In either case, you must create a PersistentVolumeClaim to provision storage from your chosen source and share the name of this PersistentVolumeClaim with your cluster users.
 
-#### 3. (Optional) Share your own MATLAB and MATLAB Parallel Server Installation with the Cluster
+Here is an example of a configuration file for a PersistentVolumeClaim:
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+namespace: <my-namespace>
+metadata:
+  name: <pvc-name>
+spec:
+  volumeName: <pv-name>
+  storageClassName: <storage-class-name>
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: <capacity>
+```
+Set `<my-namespace>` to the namespace you created in step 2.
+Set `<pvc-name>` to your desired name for the PersistentVolumeClaim and `<capacity>` to the amount of storage you wish to provision for your job storage location.
+For information on the units you can use for storage capacity, see the [Kubernetes resource management documentation](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+If you are using a PersistentVolume, set `<pv-name>` to the name of this PersistentVolume and `<storage-class-name>` to `""`.
+If you are using a StorageClass for dynamic provisioning, omit the `volumeName` field and set `<storage-class-name>` to the name of your StorageClass.
+
+#### 4. (Optional) Share your own MATLAB and MATLAB Parallel Server Installation with the Cluster
 
 The cluster must have access to a MATLAB and MATLAB Parallel Server installation.
-You can either build this into the Docker image (see step 4) or use your own MATLAB and MATLAB Parallel Server installation.
-To share your own MATLAB and MATLAB Parallel Server installation with the cluster, select from these options:
+You can either build this into the Docker image (see step 5) or use your own MATLAB and MATLAB Parallel Server installation.
+To share your own MATLAB and MATLAB Parallel Server installation with the cluster, create a PersistentVolumeClaim containing the installation.
 
-1. Make the directory containing your MATLAB and MATLAB Parallel Server installation available via an NFS server that is accessible to the cluster.
-With this option, you do not need to mount to the cluster yourself.
-Share the server hostname and the location of the directory within the server with each user.
-
-2. Manually mount the directory containing your MATLAB and MATLAB Parallel Server installation on each node of the cluster.
-You must use the same location on each node.
-Share the location of the directory on the nodes with each user.
-
-#### 4. Build the Docker Image for MATLAB Parallel Server on the Cluster
+#### 5. Build the Docker Image for MATLAB Parallel Server on the Cluster
 
 To run MATLAB Parallel Server workers on the Kubernetes cluster, you must build a suitable Docker image using the Dockerfile included in this repository and make it available on the cluster.
 
@@ -86,9 +130,9 @@ To build the image, first navigate to the `image/` directory inside this reposit
 When building, you must specify a MATLAB release number.
 This must match the version of MATLAB installed on the computers of the MATLAB Parallel Server users.
 
-If you are sharing your own MATLAB and MATLAB Parallel Server installation with the cluster (see step 3), follow Option 1. Otherwise, follow Option 2.
+If you are sharing your own MATLAB and MATLAB Parallel Server installation with the cluster (see step 4), follow Option 1. Otherwise, follow Option 2.
 
-##### Option 1: Build the Docker Image for a Mounted MATLAB Installation
+##### Option 1: Build the Docker Image Without MATLAB Installed
 To build a Docker image without a built-in MATLAB installation, specify a MATLAB release number with a lowercase "r".
 For example, if the MATLAB release is R2022a, run the following from within the `image/` directory:
 ```
@@ -113,45 +157,11 @@ For a full list of product names, see the [MathWorks product page](https://www.m
 Once you have built the image, you must make it available on your Kubernetes cluster.
 You can host it in a remote repository or pull the image to each node to obtain a local copy.
 
-#### 5. Create a Kubernetes Namespace and Limit Its Resources
-
-Kubernetes namespaces are used to separate groups of resources.
-For more information, see the [Kubernetes namespace documentation](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/).
-It is recommended that you run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that they are separate from other resources on the cluster.
-
-If users do not specify a custom namespace in the cluster profile, MATLAB Parallel Server workers will attempt to run in a namespace called "matlab".
-MATLAB will attempt to create the "matlab" namespace if it does not already exist.
-If this namespace cannot be created, the workers will run in the "default" Kubernetes namespace.
-
-To create a custom namespace, run
-```
-kubectl create namespace my-namespace
-```
-where `my-namespace` is the name you have chosen.
-
-##### Limiting Kubernetes Pods in a Namespace
-
-Within a Kubernetes namespace, you can limit the number of pods that may run simultaneously.
-Each MATLAB Parallel Server worker requires one pod.
-By limiting pods, you can limit the number of MATLAB Parallel Server workers that run at any one time.
-If your MATLAB Parallel Server license has less than 200 workers, you should limit the number of pods to the number of MATLAB Parallel Server workers by running:
-```
-kubectl create resourcequota quota-name --namespace my-namespace --hard pods=numWorkers
-```
-where `quota-name` is the name of the created resource quota, `my-namespace` is the namespace you are using and `numWorkers` is the number of MATLAB Parallel Server workers on your license.
-
 #### 6. Restrict Access to Kubernetes Secrets if Using Online Licensing
 
 MATLAB online licensing sends login tokens to the Kubernetes pods via Kubernetes secrets.
 If you use MATLAB online licensing, enable encryption at rest and restrict access to safely use Kubernetes secrets.
 For more information, see the [Kubernetes secret documentation](https://kubernetes.io/docs/concepts/configuration/secret/).
-
-#### 7. (Optional) Install Helm and Kubectl Executables on the Cluster
-
-Pool and SPMD jobs require access to the Helm and Kubectl executables on the cluster as well as on each user's computer.
-The Docker image contains the latest versions of these executables by default.
-If these versions are incompatible with your Kubernetes cluster, install your own versions of these executables on the cluster.
-The executables must be installed at the same location on each node.
 
 ## Cluster Profile Creation Instructions
 
@@ -207,7 +217,6 @@ For a full list of cluster properties, see the [`parallel.Cluster` documentation
 ----------------------|----------------
 JobStorageLocation    | Location where job data is stored on your machine.
 NumWorkers            | Number of workers available on your cluster. Set this to a value no greater than either the number of workers your license allows or the total number of CPUs available on your cluster.
-ClusterMatlabRoot     | If the cluster administrator chose to share a MATLAB and MATLAB Parallel Server installation via an NFS server, use the location of the installation on the server. If the cluster administrator mounted a MATLAB and MATLAB Parallel Server installation on each cluster node, use the location at which it is mounted. If the cluster administrator installed MATLAB and MATLAB Parallel Server on the Docker image, leave this blank.
 OperatingSystem       | 'unix'
 PluginScriptsLocation | Full path to the folder containing this file.
 
@@ -231,7 +240,6 @@ At the command line, you can also set properties at the same time you create the
 c = parallel.cluster.Generic( ...
     'JobStorageLocation', '/data/matlabJobs', ...
     'NumWorkers', 20, ...
-    'ClusterMatlabRoot', '/usr/local/matlab', ...
     'OperatingSystem', 'unix', ...
     'PluginScriptsLocation', '/data/MatlabKubernetesPlugin');
 ```
@@ -281,44 +289,27 @@ The following `AdditionalProperties` are required:
 --------------------------|----------|----------------
 Image                     | String   | If the image is hosted remotely, set to the URL of the image. If the image is available locally on the cluster, set to the name of the image.
 ImagePullPolicy           | String   | If the image is hosted remotely, set to `'Always'`. If the image is available locally on the cluster, set to `'Never'`.
-ClusterJobStorageLocation | String   | Location where job data is stored on the cluster. If the cluster administrator shared the job storage directory via an NFS server, use the location of the directory on the server. If the cluster administrator mounted this directory on each cluster node, use the location at which it is mounted.
+JobStoragePVC             | String   | Name of the PersistentVolumeClaim to use for storing job data.
+JobStoragePath            | String   | Path to the directory to use for storing job data within the PersistentVolume.
 ClusterUserID             | Number   | The ID of your user account on the cluster.
 ClusterGroupID            | Number   | The group ID of your user account on the cluster.
 
-If the cluster administrator chose to share a MATLAB and MATLAB Parallel Server installation with the cluster rather than installing MATLAB and MATLAB Parallel Server on the Docker image, set the following additional property in addition to setting the `ClusterMatlabRoot` property:
+If the cluster administrator chose to share a MATLAB and MATLAB Parallel Server installation with the cluster rather than installing MATLAB and MATLAB Parallel Server on the Docker image, set the following additional properties:
 
 **Property Name**         | **Type** | **Value**
 --------------------------|----------|----------
-MountMatlab               | Logical  | true
-
-If the cluster administrator chose to share a MATLAB and MATLAB Parallel Server installation via an NFS server, set the following additional property:
-
-**Property Name**         | **Type** | **Value**
---------------------------|----------|----------------
-MatlabServer              | String   | Hostname or IP address of the NFS server from which the MATLAB installation is shared.
-
-If the cluster administrator chose to share the job storage location via an NFS server, set the following additional property:
-
-**Property Name**         | **Type** | **Value**
---------------------------|----------|----------------
-JobStorageServer          | String   | Hostname or IP address of the NFS server from which the job storage location is shared.
+MatlabPVC                 | String   | Name of the PersistentVolumeClaim containing MATLAB and MATLAB Parallel Server.
+MatlabPath                | String   | Path to the MATLAB installation within the PeristentVolume.
 
 The following additional properties are optional:
 
 **Property Name**         | **Type** | **Description**
 --------------------------|----------|----------------
-Namespace                 | String   | The Kubernetes namespace to use. If this property is not specified, the cluster will use the `'matlab'` namespace. If the `'matlab'` namespace cannot be created, the `'default'` namespace is used instead.
-KubeConfig                | String   | The location of the config file used by `kubectl` to access your cluster. For more information, see the [Kubernetes config file documentation](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/). If this property is not specified, the default location (`$HOME/.kube/config`) is used.
-KubeContext               | String   | The context within your Kubernetes config file to use if you have multiple clusters or user configurations within that file. For more information, see the [Kubernetes context documentation](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/). If this property is not specified, the default context is used.
+Namespace                 | String   | The Kubernetes namespace to use. If you do not specify this property, MATLAB will use the `matlab` namespace. If MATLAB cannot create the `matlab` namespace, the workers will run in the `default` namespace.
+KubeConfig                | String   | The location of the config file that `kubectl` uses to access your cluster. For more information, see the [Kubernetes config file documentation](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/). If you do not specify this property, MATLAB will use the default location (`$HOME/.kube/config`).
+KubeContext               | String   | The context within your Kubernetes config file to use if you have multiple clusters or user configurations within that file. For more information, see the [Kubernetes context documentation](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/). If you do not specify this property, MATLAB will use the default context.
 LicenseServer             | String   | The port and hostname of a machine running a Network License Manager in the format port@hostname.
 Timeout                   | Number   | The amount of time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. By default, this property is set to 600 seconds.
-
-If the cluster administrator installed specific versions of the Helm and Kubectl executables on the cluster, set the following additional properties:
-
-**Property Name**         | **Type** | **Description**
---------------------------|----------|----------------
-HelmDir                   | String   | Directory on the Kubernetes cluster in which the Helm executable is installed.
-KubectlDir                | String   | Directory on the Kubernetes cluster in which the Kubectl executable is installed.
 
 #### 7. Save Your New Profile
 
@@ -468,4 +459,4 @@ The license is available in the [license.txt](license.txt) file in this reposito
 
 If you require assistance or have a request for additional features or capabilities, please contact [MathWorks Technical Support](https://www.mathworks.com/support/contact_us.html).
 
-Copyright 2022 The MathWorks, Inc.
+Copyright 2022-2023 The MathWorks, Inc.

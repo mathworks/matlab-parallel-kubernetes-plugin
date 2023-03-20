@@ -3,7 +3,7 @@ function [exitCode, cmdOut] = runKubeCmd(commandToRun, cluster, job, throwIfFail
 % If the command returns a nonzero exit code, raise an error if throwIfFailed
 % is true or unset, or a warning otherwise.
 
-% Copyright 2022 The MathWorks, Inc.
+% Copyright 2022-2023 The MathWorks, Inc.
 
 if nargin < 4
     throwIfFailed = true;
@@ -14,14 +14,9 @@ dctSchedulerMessage(4, "Running command: %s", commandToRun);
 [exitCode, cmdOut] = system(commandToRun);
 cmdOut = strip(cmdOut);
 
-if exitCode ~= 0
-    errType = "parallelexamples:GenericKubernetes:CommandFailed";
-    msg = sprintf("Command ""%s"" failed with message ""%s""", commandToRun, cmdOut);
-    if throwIfFailed
-        error(errType, msg); %#ok<SPERR>
-    else
-        warning(errType, msg); %#ok<SPWRN>
-    end
+if exitCode ~= 0 && throwIfFailed
+    error("parallelexamples:GenericKubernetes:CommandFailed", ...
+        "Command ""%s"" failed with message ""%s""", commandToRun, cmdOut);
 end
 end
 

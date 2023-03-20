@@ -1,4 +1,4 @@
-# Copyright 2022 The MathWorks, Inc.
+# Copyright 2022-2023 The MathWorks, Inc.
 {{- range $index, $taskLoc := .Values.parallelServer.taskLocations }}
 apiVersion: batch/v1
 kind: Job
@@ -34,15 +34,18 @@ spec:
           requests:
             cpu: {{ $.Values.numThreads }}
 
-        # Set locations in the container of mounted directories
         {{- $containerJobStorageLocation := "/job_storage" }}
-        {{- $containerMatlabRoot := "/matlab" }}
+        {{- $containerMatlabMount := "/matlab" }}
+        {{- $containerMatlabRoot := $containerMatlabMount }}
+        {{- if $.Values.matlabPVC }}
+        {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
+        {{- end}}
         volumeMounts:
         - name: data-volume
           mountPath: {{ $containerJobStorageLocation }}
-        {{- if $.Values.mountMatlab }}
+        {{- if $.Values.matlabPVC }}
         - name: matlab-volume
-          mountPath: {{ $containerMatlabRoot }}
+          mountPath: {{ $containerMatlabMount }}
           readOnly: true
         {{- end }}
 
@@ -52,11 +55,11 @@ spec:
         - name: PARALLEL_SERVER_STORAGE_CONSTRUCTOR
           value: {{ $.Values.parallelServer.storageConstructor | quote }}
         - name: PARALLEL_SERVER_STORAGE_LOCATION
-          value: {{ $containerJobStorageLocation }}
+          value: {{ printf "%s/%s" $containerJobStorageLocation $.Values.jobStoragePath }}
         - name: PARALLEL_SERVER_JOB_LOCATION
           value: {{ $.Values.parallelServer.jobLocation | quote }}
         - name: PARALLEL_SERVER_TASK_LOCATION
-          value: {{ . | quote }}
+          value: {{ $taskLoc | quote }}
         - name: PARALLEL_SERVER_MATLAB_ARGS
           value: {{ $.Values.parallelServer.matlabArgs | quote }}
         - name: PARALLEL_SERVER_USER_ID
@@ -85,29 +88,16 @@ spec:
               key: {{ $.Values.userCredKeyName }}
         {{- end }}
 
-      # Set locations of directories to be mounted onto the container; these
-      # are either locations on the cluster nodes, or NFS servers
+      # Set locations of directories to be mounted onto the container
       volumes:
       - name: data-volume
-        {{- if $.Values.jobStorageServer }}
-        nfs:
-          server: {{ $.Values.jobStorageServer }}
-        {{- else }}
-        hostPath:
-          type: Directory
-        {{- end }}
-          path: {{ $.Values.clusterJobStorageLocation | quote }}
+        persistentVolumeClaim:
+          claimName: {{ $.Values.jobStoragePVC }}
 
-      {{- if $.Values.mountMatlab }}
+      {{- if $.Values.matlabPVC }}
       - name: matlab-volume
-        {{- if $.Values.matlabServer }}
-        nfs:
-          server: {{ $.Values.matlabServer }}
-        {{- else }}
-        hostPath:
-          type: Directory
-        {{- end }}
-          path: {{ $.Values.clusterMatlabRoot | quote }}
+        persistentVolumeClaim:
+          claimName: {{ $.Values.matlabPVC }}
       {{- end }}
 ---
 {{- end }}

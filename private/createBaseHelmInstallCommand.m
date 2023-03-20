@@ -3,7 +3,7 @@ function cmd = createBaseHelmInstallCommand(releaseName, jobUID, podNames, ...
 % Create helm install command with settings common to independent and
 % communicating jobs.
 
-% Copyright 2022 The MathWorks, Inc.
+% Copyright 2022-2023 The MathWorks, Inc.
 
 cmd = sprintf("helm install %s ""%s""", releaseName, chartDir);
 
@@ -13,9 +13,6 @@ cmd = appendHelmSetting(cmd, "taskUIDs", podNames, true);
 cmd = appendHelmSetting(cmd, "image", cluster.AdditionalProperties.Image);
 cmd = appendHelmSetting(cmd, "imagePullPolicy", ...
     cluster.AdditionalProperties.ImagePullPolicy);
-cmd = appendHelmSetting(cmd, "clusterMatlabRoot", cluster.ClusterMatlabRoot);
-cmd = appendHelmSetting(cmd, "clusterJobStorageLocation", ...
-    cluster.AdditionalProperties.ClusterJobStorageLocation);
 cmd = appendHelmSetting(cmd, "parallelServer.jobLocation", ...
     environmentProperties.JobLocation);
 cmd = appendHelmSetting(cmd, "parallelServer.debug", iGetDebugSetting(cluster));
@@ -28,15 +25,17 @@ cmd = appendHelmSetting(cmd, "parallelServer.storageConstructor", ...
 cmd = appendHelmSetting(cmd, "parallelServer.matlabArgs", ...
     environmentProperties.MatlabArguments);
 cmd = appendHelmSetting(cmd, "numThreads", cluster.NumThreads);
+cmd = appendHelmSetting(cmd, "jobStoragePVC", ...
+    cluster.AdditionalProperties.JobStoragePVC);
+cmd = appendHelmSetting(cmd, "jobStoragePath", ...
+    cluster.AdditionalProperties.JobStoragePath);
 
-mountMatlab = false;
-if isprop(cluster.AdditionalProperties, "MountMatlab")
-    mountMatlab = cluster.AdditionalProperties.MountMatlab;
+useMatlabPVC = isprop(cluster.AdditionalProperties, "MatlabPVC");
+if useMatlabPVC
+    cmd = appendHelmSetting(cmd, "matlabPVC", cluster.AdditionalProperties.MatlabPVC);
+    cmd = appendHelmSetting(cmd, "matlabPath", cluster.AdditionalProperties.MatlabPath);
 end
-cmd = appendHelmSetting(cmd, "mountMatlab", mountMatlab);
 
-cmd = appendOptionalHelmSetting(cmd, cluster, "JobStorageServer", "jobStorageServer");
-cmd = appendOptionalHelmSetting(cmd, cluster, "MatlabServer", "matlabServer");
 cmd = appendOptionalHelmSetting(cmd, cluster, "LicenseServer", "licenseServer");
 
 end
