@@ -2,7 +2,7 @@ function checkClusterProperties(cluster)
 % Check that a cluster has the required properties and that its properties
 % are of the correct data type.
 
-% Copyright 2022 The MathWorks, Inc.
+% Copyright 2022-2023 The MathWorks, Inc.
 
 iCheckRequiredAdditionalProperties(cluster);
 iCheckOptionalAdditionalProperties(cluster);
@@ -14,7 +14,8 @@ function iCheckRequiredAdditionalProperties(cluster)
 
 iCheckCharOrString(cluster, "Image");
 iCheckCharOrString(cluster, "ImagePullPolicy");
-iCheckCharOrString(cluster, "ClusterJobStorageLocation");
+iCheckCharOrString(cluster, "JobStoragePVC");
+iCheckCharOrString(cluster, "JobStoragePath");
 iCheckInt(cluster, "ClusterUserID");
 iCheckInt(cluster, "ClusterGroupID");
 end
@@ -24,13 +25,15 @@ function iCheckOptionalAdditionalProperties(cluster)
 % if type mismatches are found.
 
 iCheckOptional(cluster, "JobStorageServer", @iCheckCharOrString);
-iCheckOptional(cluster, "MatlabServer", @iCheckCharOrString);
 iCheckOptional(cluster, "Namespace", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeConfig", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeContext", @iCheckCharOrString);
 iCheckOptional(cluster, "Timeout", @iCheckInt);
-iCheckOptional(cluster, "MountMatlab", @iCheckLogical);
+iCheckOptional(cluster, "MatlabPVC", @iCheckCharOrString);
+iCheckOptional(cluster, "MatlabPath", @iCheckCharOrString);
 iCheckOptional(cluster, "LicenseServer", @iCheckCharOrString);
+
+iCheckDependentProp(cluster, 'MatlabPVC', 'MatlabPath');
 end
 
 function iCheckHasProp(cluster, name)
@@ -62,19 +65,22 @@ if ~isnumeric(object) || (rem(object, 1) ~= 0)
 end
 end
 
-function iCheckLogical(cluster, name)
-% Throw an error if cluster.AdditionalProperties.(name) is not a logical array.
-iCheckHasProp(cluster, name);
-object = cluster.AdditionalProperties.(name);
-if ~islogical(object)
-    error("parallelexamples:GenericKubernetes:IncorrectArguments", ...
-        "%s must be a logical array", name);
-end
-end
-
 function iCheckOptional(cluster, name, checkerFcn)
 % If an additional property exists, check it with checkerFcn.
 if isprop(cluster.AdditionalProperties, name)
     checkerFcn(cluster, name)
+end
+end
+
+function iCheckDependentProp(cluster, name, dependsOn)
+% Check that if a given property is set, another property that it depends
+% on is also set.
+if ~isprop(cluster.AdditionalProperties, name)
+    return
+end
+if ~isprop(cluster.AdditionalProperties, dependsOn)
+    error("parallelexamples:GenericKubernetes:MissingAdditionalProperties", ...
+        "If AdditionalProperties.%s is set, AdditionalProperties.%s must also be set", ...
+        name, dependsOn);
 end
 end

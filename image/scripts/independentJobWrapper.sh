@@ -2,27 +2,34 @@
 # Script to be run by each independent job pod on startup. Launches a MATLAB
 # worker.
 #
-# Exits with code 2 if we don't have permission to write to the job storage location.
+# Exit codes:
+# 2: Incorrect write permission for the job storage location.
+# 5: MATLAB executable not found.
 #
-# Copyright 2022 The MathWorks, Inc.
+# Copyright 2022-2023 The MathWorks, Inc.
 set -o nounset
 
 main() {
     . /scripts/defs.sh
-
-    # Exit if we don't have write permission for the job storage location
-    local permissionErr
-    permissionErr=$(. /scripts/checkWritePermission.sh)
-    if [ -n "${permissionErr}" ]; then
-        logger 0 "${permissionErr}"
-        logger 0 "Terminating job"
-        exit "${EXIT_CODE_WRITE_PERMISSION}"
-    fi
+    initialChecks
 
     logger 4 "Running $(basename $0) as user with uid=$(id -u), gid=$(id -g)"
     setHome
     trap "rm -r $HOME" EXIT
+
     runMatlab
+}
+
+# Check this job can run
+initialChecks() {
+    local err
+    local exitCode
+    err=$(. /scripts/initialChecks.sh)
+    exitCode=$?
+    if [ ${exitCode} -ne 0 ]; then
+        logger 0 "${err}"
+        exit ${exitCode}
+    fi
 }
 
 # Create temporary home directory in the job storage location
@@ -38,6 +45,7 @@ runMatlab() {
     "${MATLAB_ROOT}/bin/worker" "${PARALLEL_SERVER_MATLAB_ARGS}" >> "${LOGFILE_FULL}"
     local exitCode=$?
     logger 0 "Exited MATLAB with code: ${exitCode}"
+    exit ${exitCode}
 }
 
 # Write log entry

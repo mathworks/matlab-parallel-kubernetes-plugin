@@ -1,155 +1,114 @@
-# Copyright 2022 The MathWorks, Inc.
+# Copyright 2022-2023 The MathWorks, Inc.
+{{- range $index, $taskLoc := .Values.parallelServer.taskLocations }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  {{- $taskUID := (index .Values.taskUIDs 0) | quote | lower }}
+  {{- $taskUID := (index $.Values.taskUIDs $index) | quote | lower }}
   name: {{ $taskUID }}
   labels:
-      jobUID: {{ .Values.jobUID }}
+      jobUID: {{ $.Values.jobUID }}
       taskUID: {{ $taskUID }}
 spec:
   backoffLimit: 0
-  {{- if (.Values.automaticJobCleanup | default false) }}
-  ttlSecondsAfterFinished: {{ .Values.ttlSecondsAfterFinished }}
+  {{- if ($.Values.automaticJobCleanup | default false) }}
+  ttlSecondsAfterFinished: {{ $.Values.ttlSecondsAfterFinished }}
   {{- end }}
   template:
     metadata:
       name: communicating-matlab-job-pod
       labels:
-        jobUID: {{ .Values.jobUID }}
+        jobUID: {{ $.Values.jobUID }}
         taskUID: {{ $taskUID }}
     spec:
-      serviceAccountName: {{ .Values.serviceAccountName }}
       restartPolicy: Never
       containers:
       - name: communicating-matlab-job
-        image: {{ .Values.image | quote }}
-        imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+        image: {{ $.Values.image | quote }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy | quote }}
         args:
-        - /scripts/primaryWorker.sh
+        - /scripts/communicatingJobWrapper.sh
         resources:
           requests:
-            cpu: {{ .Values.numThreads }}
+            cpu: {{ $.Values.numThreads }}
 
-        # Set locations in the container of directories mounted from cluster -> container
         {{- $containerJobStorageLocation := "/job_storage" }}
-        {{- $containerMatlabRoot := "/matlab" }}
-        {{- $containerHelmDir := "/custom_helm" }}
-        {{- $containerKubectlDir := "/custom_kubectl" }}
+        {{- $containerMatlabMount := "/matlab" }}
+        {{- $containerMatlabRoot := $containerMatlabMount }}
+        {{- if $.Values.matlabPVC }}
+        {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
+        {{- end }}
         volumeMounts:
         - name: data-volume
           mountPath: {{ $containerJobStorageLocation }}
-        {{- if .Values.mountMatlab }}
+        {{- if $.Values.matlabPVC }}
         - name: matlab-volume
-          mountPath: {{ $containerMatlabRoot }}
-          readOnly: true
-        {{- end }}
-        {{- if .Values.clusterHelmDir }}
-        - name: helm-volume
-          mountPath: {{ $containerHelmDir }}
-          readOnly: true
-        {{- end }}
-        {{- if .Values.clusterKubectlDir }}
-        - name: kubectl-volume
-          mountPath: {{ $containerKubectlDir }}
+          mountPath: {{ $containerMatlabMount }}
           readOnly: true
         {{- end }}
 
         env:
         - name: PARALLEL_SERVER_DECODE_FUNCTION
-          value: {{ .Values.parallelServer.decodeFunction | quote }}
+          value: {{ $.Values.parallelServer.decodeFunction | quote }}
         - name: PARALLEL_SERVER_STORAGE_CONSTRUCTOR
-          value: {{ .Values.parallelServer.storageConstructor | quote }}
+          value: {{ $.Values.parallelServer.storageConstructor | quote }}
         - name: PARALLEL_SERVER_STORAGE_LOCATION
-          value: {{ $containerJobStorageLocation }}
+          value: {{ printf "%s/%s" $containerJobStorageLocation $.Values.jobStoragePath }}
         - name: PARALLEL_SERVER_JOB_LOCATION
-          value: {{ .Values.parallelServer.jobLocation | quote }}
+          value: {{ $.Values.parallelServer.jobLocation | quote }}
+        - name: PARALLEL_SERVER_TASK_LOCATION
+          value: {{ $taskLoc | quote }}
         - name: PARALLEL_SERVER_MATLAB_ARGS
-          value: {{ .Values.parallelServer.matlabArgs | quote }}
+          value: {{ $.Values.parallelServer.matlabArgs | quote }}
         - name: PARALLEL_SERVER_USER_ID
-          value: {{ .Values.parallelServer.userID | quote }}
+          value: {{ $.Values.parallelServer.userID | quote }}
         - name: PARALLEL_SERVER_GROUP_ID
-          value: {{ .Values.parallelServer.groupID | quote }}
+          value: {{ $.Values.parallelServer.groupID | quote }}
         - name: PARALLEL_SERVER_DEBUG
-          value: {{ .Values.parallelServer.debug | quote }}
+          value: {{ $.Values.parallelServer.debug | quote }}
         - name: MATLAB_ROOT
           value: {{ $containerMatlabRoot }}
-        - name: HELM_RELEASE_NAME
-          value: {{ .Release.Name | quote }}
         - name: NUMBER_OF_TASKS
-          value: {{ .Values.numberOfTasks | quote }}
+          value: {{ len $.Values.taskUIDs | quote }}
+        - name: IS_PRIMARY
+          value: {{ eq $index 0 | quote }}
         - name: PARALLEL_SERVER_USERNAME
-          value: {{ .Values.username }}
+          value: {{ $.Values.username }}
         - name: JOB_UID
-          value: {{ .Values.jobUID }}
+          value: {{ $.Values.jobUID }}
         - name: TIMEOUT
-          value: {{ .Values.timeout | quote }}
-        - name: TASK_UIDS
-          value: {{ slice .Values.taskUIDs 1 | join "," }}
+          value: {{ $.Values.timeout | quote }}
         - name: LOGFILE
-          value: {{ .Values.logfile }}
-        - name: HELM
-          {{- if .Values.clusterHelmDir }}
-          value: {{ printf "%s/helm" $containerHelmDir }}
-          {{- else }}
-          value: "helm"
-          {{- end }}
-        - name: KUBECTL
-          {{- if .Values.clusterKubectlDir }}
-          value: {{ printf "%s/kubectl" $containerKubectlDir }}
-          {{- else }}
-          value: "kubectl"
-          {{- end }}
+          value: {{ $.Values.logfile }}
         - name: MLM_LICENSE_FILE
-          value: {{ .Values.licenseServer | quote }}
+          value: {{ $.Values.licenseServer | quote }}
         - name: MLM_WEB_LICENSE
-          value: {{ .Values.mlmWebLicense | quote }}
+          value: {{ $.Values.mlmWebLicense | quote }}
         - name: MLM_WEB_ID
-          value: {{ .Values.mlmWebID | quote }}
+          value: {{ $.Values.mlmWebID | quote }}
         - name: PARALLEL_SERVER_LICENSE_NUMBER
-          value: {{ .Values.licenseNumber | quote }}
-        {{- if .Values.userCredSecretName }}
+          value: {{ $.Values.licenseNumber | quote }}
+        {{- if $.Values.userCredSecretName }}
         - name: MLM_WEB_USER_CRED
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.userCredSecretName }}
               key: {{ $.Values.userCredKeyName }}
         {{- end }}
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
 
-      # Set locations on the cluster of directories mounted from cluster -> container
+      # Set locations of directories to be mounted onto the container
       volumes:
       - name: data-volume
-        {{- if $.Values.jobStorageServer }}
-        nfs:
-          server: {{ $.Values.jobStorageServer }}
-        {{- else }}
-        hostPath:
-          type: Directory
-        {{- end }}
-          path: {{ $.Values.clusterJobStorageLocation | quote }}
+        persistentVolumeClaim:
+          claimName: {{ $.Values.jobStoragePVC }}
 
-      {{- if $.Values.mountMatlab }}
+      {{- if $.Values.matlabPVC }}
       - name: matlab-volume
-        {{- if $.Values.matlabServer }}
-        nfs:
-          server: {{ $.Values.matlabServer }}
-        {{- else }}
-        hostPath:
-          type: Directory
-        {{- end }}
-          path: {{ $.Values.clusterMatlabRoot | quote }}
+        persistentVolumeClaim:
+          claimName: {{ $.Values.matlabPVC }}
       {{- end }}
-
-      {{- if .Values.clusterHelmDir }}
-      - name: helm-volume
-        hostPath:
-          path: {{ .Values.clusterHelmDir | quote }}
-          type: Directory
-      {{- end }}
-
-      {{- if .Values.clusterKubectlDir }}
-      - name: kubectl-volume
-        hostPath:
-          path: {{ .Values.clusterKubectlDir | quote }}
-          type: Directory
-      {{- end }}
+---
+{{- end }}
