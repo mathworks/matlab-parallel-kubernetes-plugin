@@ -299,7 +299,7 @@ These additional properties are optional:
 
 **Property Name**         | **Data Type** | **Description**
 --------------------------|---------------|----------------
-`Namespace`                 | `String`   | Kubernetes namespace. If you do not specify this property, MATLAB uses the `matlab` PersistentVolume. If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
+`Namespace`                 | `String`   | Kubernetes namespace. If you do not specify this property, MATLAB uses the `matlab` namespace. If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
 `KubeConfig`                | `String`   | Location of the `config` file that `kubectl` uses to access your cluster. For more information, see the documentation for the [Kubernetes `config` file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) on the Kubernetes website. If you do not specify this property, MATLAB uses the default location (`$HOME/.kube/config`).
 `KubeContext`               | `String`   | Context within your Kubernetes `config` file if that file has multiple clusters or user configurations. For more information, see the documentation for [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) on the Kubernetes website. If you do not set this property, MATLAB uses the default context.
 `LicenseServer`             | `String`   | Port and hostname of a machine running a Network License Manager in the format `port@hostname`.
