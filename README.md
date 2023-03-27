@@ -60,8 +60,8 @@ For more information, see the documentation for [Namespaces](https://kubernetes.
 Run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that the jobs are separate from other resources on the cluster.
 
 If users do not specify a custom namespace in the cluster profile, MATLAB Parallel Server workers run in a namespace called `matlab`.
-The workers attempt to create the `matlab` namespace if it does not already exist.
-If the workers cannot create the `matlab` namespace, the workers run in the `default` namespace.
+MATLAB will attempt to create the `matlab` namespace if it does not already exist.
+If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
 
 To create a custom namespace with the name `my-namespace`, run this command:
 ```
@@ -82,10 +82,10 @@ kubectl create resourcequota quota-name --namespace my-namespace --hard pods=num
 #### 3. Set Up PersistentVolumeClaim for Job Storage
 
 You must ensure that each MATLAB Parallel Server user has read and write access to a folder on their computer that is shared with the cluster via a PersistentVolumeClaim.
-The account the user uses to run jobs the cluster must also have read and write access to that folder.
+The account the user uses to run jobs on the cluster must also have read and write access to that folder.
 
 You can create a Kubernetes PersistentVolumeClaim either statically from a PersistentVolume or dynamically from a StorageClass.
-For more information, see the documentation for [PersistentVolume](https://https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
+For more information, see the documentation for [PersistentVolumes](https://https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
 
 For example, if you have an on-premise Kubernetes cluster, you can create a PersistentVolume from an NFS server that is visible to your cluster.
 Alternatively, if you have a Kubernetes cluster in AWS, you can create a StorageClass to provision storage from an EFS instance.
@@ -169,7 +169,7 @@ Before proceeding, ensure that you have the products required for running MATLAB
 
 ### Products Required for Cluster Profile Creation
 
-- MATLAB and Parallel Computing Toolbox R2019b or newer installed on your computer. For an overview of these software products, see the product pages for [MATLAB](https://mathworks.com/products/matlab.html) and [Parallel Computing Toolbox](https://mathworks.com/products/parallel-computing.html) on the MathWorks website. 
+- MATLAB and Parallel Computing Toolbox R2019b or newer installed on your computer. For an overview of these software products, see the product pages for [MATLAB](https://mathworks.com/products/matlab.html) and [Parallel Computing Toolbox](https://mathworks.com/products/parallel-computing.html) on the MathWorks website.
 For help with installing MATLAB or Parallel Computing Toolbox, see MathWorks install support: [www.mathworks.com/help/install](https://mathworks.com/help/install/index.html).
 - A MATLAB Parallel Server&trade; license. For an overview, see the product page for [MATLAB Parallel Server](https://mathworks.com/products/matlab-parallel-server.html) on the MathWorks website.
 - Kubectl installed on your computer. For help with installing Kubectl, see [https://.kubernetes.io/docs/tasks/tools](https://kubernetes.io/docs/tasks/tools/).
@@ -232,7 +232,7 @@ c.JobStorageLocation = '/data/matlabJobs';
 % etc.
 ```
 
-At the MATLAB Command Window, you can also set properties when you create the `Generic` cluster object by using name-value arguments. For example, this code configures a Generic cluster object with 20 workers for the specified job storage location, cluster MATLAB root, operating system, and plugin scripts location. 
+At the MATLAB Command Window, you can also set properties when you create the `Generic` cluster object by using name-value arguments. For example, this code configures a Generic cluster object with 20 workers for the specified job storage location, cluster MATLAB root, operating system, and plugin scripts location.
 ```matlab
 c = parallel.cluster.Generic( ...
     'JobStorageLocation', '/data/matlabJobs', ...
@@ -303,12 +303,12 @@ These additional properties are optional:
 `KubeConfig`                | `String`   | Location of the `config` file that `kubectl` uses to access your cluster. For more information, see the documentation for the [Kubernetes `config` file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) on the Kubernetes website. If you do not specify this property, MATLAB uses the default location (`$HOME/.kube/config`).
 `KubeContext`               | `String`   | Context within your Kubernetes `config` file if that file has multiple clusters or user configurations. For more information, see the documentation for [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) on the Kubernetes website. If you do not set this property, MATLAB uses the default context.
 `LicenseServer`             | `String`   | Port and hostname of a machine running a Network License Manager in the format `port@hostname`.
-`Timeout`                   | Numeric   | Time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. The default value is 600. 
+`Timeout`                   | Numeric   | Time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. The default value is 600.
 
 #### 7. Save New Profile
 
 In the Cluster Profile Manager, click **Done**.
-If you are setting the additional properties programmatically, in the Command Window run this command:
+If you are creating the cluster programmatically, in the Command Window run this command:
 ```matlab
 saveAsProfile(c, "myKubernetesCluster");
 ```
@@ -374,7 +374,7 @@ job = batch( ...
     1, ... % Number of output arguments
     {[64 100]}); % Input arguments
 
-% Your MATLAB session is now available to do other work You can
+% Your MATLAB session is now available to do other work. You can
 % continue to create and submit more jobs to the cluster. You can also
 % shut down your MATLAB session and come back later. The work
 % continues to run on the cluster. After you recreate
@@ -382,12 +382,12 @@ job = batch( ...
 % jobs using the Jobs property of the cluster object.
 
 % Wait for the job to complete. If the job is already complete,
-% MATLAB does not block the Command Window and this command 
-returns the prompt (`>>`) immediately.
+% MATLAB does not block the Command Window and this command
+% returns the prompt (`>>`) immediately.
 wait(job);
 
 % Retrieve the output arguments for each task. For this example,
-% % the output is a 1x1 cell array containing the vector [8 10].
+% the output is a 1x1 cell array containing the vector [8 10].
 results = fetchOutputs(job)
 ```
 
@@ -417,20 +417,18 @@ Once the workers start, your MATLAB session connects to them.
 For more information about parpools, see the documentation for [parpool](https://mathworks.com/help/parallel-computing/parpool.html) on the MathWorks website.
 
 ```matlab
-% % Open a parallel pool on the cluster. This command
+% Open a parallel pool on the cluster. This command
 % returns the prompt (>>) once the pool is opened.
 pool = parpool(c);
 
-% List the hosts on which the workers are running. For a small pool,
-% all the workers are typically on the same machine. For a large
-% pool, the workers are usually spread over multiple nodes.
+% List the hosts on which the workers are running.
 future = parfevalOnAll(p, @getenv, 1, 'HOST')
 wait(future);
 fetchOutputs(future)
 
 % Output the numbers 1 to 10 in a parallel `for`-loop.
-% Unlike a regular `for`-loop, the software does not 
-execute iterations of the loop in order.
+% Unlike a regular `for`-loop, the software does not
+% execute iterations of the loop in order.
 parfor idx = 1:10
     disp(idx)
 end
