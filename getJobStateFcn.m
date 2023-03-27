@@ -1,7 +1,7 @@
 function state = getJobStateFcn(cluster, job, state)
 % Query the state of a job on a Kubernetes cluster.
 
-% Copyright 2022 The MathWorks, Inc.
+% Copyright 2022-2023 The MathWorks, Inc.
 
 if strcmp(state, "finished") || strcmp(state, "failed")
     return
@@ -94,10 +94,19 @@ if exitCode == 2
         cluster.AdditionalProperties.ClusterUserID, ...
         cluster.AdditionalProperties.ClusterGroupID, ...
         cluster.AdditionalProperties.ClusterJobStorageLocation));
-elseif exitCode == 3 && iIsCommunicatingJob(job)
+elseif exitCode == 3 && ~isIndependentJob(job)
     iError(job, 'parallelexamples:GenericKubernetes:CommunicatingJobTimeout', ...
         sprintf('Job timed out after %d seconds waiting for %d workers to start. Submit a job with fewer workers or increase the timeout by editing the cluster''s "Timeout" additional property.', ...
         getTimeout(cluster), max(job.NumWorkersRange)));
+elseif exitCode == 5
+    if isprop(cluster.AdditionalProperties, 'MatlabPVC')
+        iError(job, 'parallelexamples:GenericKubernetes:MatlabNotFoundInPVC', ...
+            sprintf('MATLAB worker executable not found at path "%s" in PersistentVolumeClaim "%s".', ...
+            cluster.AdditionalProperties.MatlabPath, cluster.AdditionalProperties.MatlabPVC));
+    else
+        iError(job, 'parallelexamples:GenericKubernetes:MatlabNotFoundInImage', ...
+            'MATLAB worker executable not found. Ensure your Docker image contains a matlab installation at /matlab or set AdditionalProperties.MatlabPVC to the name of a PersistentVolumeClaim containing a MATLAB installation.');
+    end
 end
 end
 
@@ -110,9 +119,4 @@ if ~any(strcmp(errId, previousErrors))
     insertJobData(cluster, job, "Errors", previousErrors);
     error(errId, message);
 end
-end
-
-function isCommunicatingJob = iIsCommunicatingJob(job)
-communicatingJobTypes = ["pool", "spmd", "concurrent"];
-isCommunicatingJob = any(strcmp(job.Type, communicatingJobTypes));
 end

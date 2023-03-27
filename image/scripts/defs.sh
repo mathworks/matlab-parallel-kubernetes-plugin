@@ -11,6 +11,9 @@ main() {
     # Exit codes
     export EXIT_CODE_WRITE_PERMISSION=2
     export EXIT_CODE_TIMEOUT=3
+    export EXIT_CODE_PRIMARY_WORKER_ERROR=4
+    export EXIT_CODE_MISSING_MATLAB=5
+    export EXIT_CODE_SSH_KEY_TIMEOUT=6
 
     setupLogging
 }

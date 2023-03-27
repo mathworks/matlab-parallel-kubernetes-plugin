@@ -1,13 +1,11 @@
 #!/usr/bin/env sh
-# Get IP addresses of pods associated with a given job UID.
+# Find pod IP addresses in the job storage directory.
 #
-# Copyright 2022 The MathWorks, Inc.
+# Copyright 2022-2023 The MathWorks, Inc.
 set -o nounset
 
 main() {
-    local ips
-    ips=$(${KUBECTL} get pods -l jobUID="${JOB_UID}" -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
-    echo "${ips}" | xargs
+    awk '{print $1}' "${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_JOB_LOCATION}"/*.ip 2>/dev/null
 }
 
-main "$@"
+main
