@@ -60,8 +60,8 @@ For more information, see the documentation for [Namespaces](https://kubernetes.
 Run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that the jobs are separate from other resources on the cluster.
 
 If users do not specify a custom namespace in the cluster profile, MATLAB Parallel Server workers run in a namespace called `matlab`.
-MATLAB will attempt to create the `matlab` namespace if it does not already exist.
-If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
+MATLAB attempts to create the `matlab` namespace if it does not already exist.
+If MATLAB can not create the `matlab` namespace, the workers run in the `default` namespace.
 
 To create a custom namespace with the name `my-namespace`, run this command:
 ```
@@ -70,9 +70,9 @@ kubectl create namespace my-namespace
 
 ##### Limit Kubernetes Pods in Namespace
 
-You can limit the number of pods that run simultaneously in a namespace.
+You can limit the number of pods that can run simultaneously in a namespace.
 Each MATLAB Parallel Server worker requires one pod.
-By limiting pods, you can limit the number of MATLAB Parallel Server workers that run simultaneously.
+By limiting the number of pods to run simultaneously, you can limit the number of MATLAB Parallel Server workers that run simultaneously.
 If your MATLAB Parallel Server license has fewer than 200 workers, limit the number of pods to the number of MATLAB Parallel Server workers by running this command:
 ```
 kubectl create resourcequota quota-name --namespace my-namespace --hard pods=numWorkers
@@ -293,13 +293,13 @@ If the cluster shares a MATLAB and MATLAB Parallel Server installation via a Per
 **Property Name**         | **Data Type** | **Description**
 --------------------------|---------------|----------
 `MatlabPVC`               | `String`      | Name of the PersistentVolumeClaim containing the MATLAB and MATLAB Parallel Server installation.
-`MatlabPath`              | `String`      | Path to the MATLAB installation within the PeristentVolume.
+`MatlabPath`              | `String`      | Path to the MATLAB installation within the PersistentVolume.
 
 These additional properties are optional:
 
 **Property Name**         | **Data Type** | **Description**
 --------------------------|---------------|----------------
-`Namespace`                 | `String`   | Kubernetes namespace. If you do not specify this property, MATLAB uses the `matlab` namespace. If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
+`Namespace`                 | `String`   | Kubernetes namespace. If you do not specify this property, MATLAB uses the `matlab` PersistentVolume. If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
 `KubeConfig`                | `String`   | Location of the `config` file that `kubectl` uses to access your cluster. For more information, see the documentation for the [Kubernetes `config` file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) on the Kubernetes website. If you do not specify this property, MATLAB uses the default location (`$HOME/.kube/config`).
 `KubeContext`               | `String`   | Context within your Kubernetes `config` file if that file has multiple clusters or user configurations. For more information, see the documentation for [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) on the Kubernetes website. If you do not set this property, MATLAB uses the default context.
 `LicenseServer`             | `String`   | Port and hostname of a machine running a Network License Manager in the format `port@hostname`.
