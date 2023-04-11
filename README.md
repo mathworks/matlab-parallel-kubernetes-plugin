@@ -35,7 +35,7 @@ You can only use interactive parallel pools if your Kubernetes cluster is runnin
 ## One-Time Cluster Setup Instructions (Cluster Administrators)
 
 The instructions in this section are for Kubernetes cluster administrators to prepare the cluster to run MATLAB Parallel Server workers.
-Before proceeding, ensure that you have the products required for one-time cluster setup in the [Products Required](### Products Required for Cluster Setup) section.
+Before proceeding, ensure that you have the products required for one-time cluster setup in the [Products Required for Cluster Setup](#products-required-for-cluster-setup) section.
 
 ### Products Required for Cluster Setup
 
@@ -165,7 +165,7 @@ For more information, see the documentations for [Secret](https://kubernetes.io/
 
 The instructions in this section are for MATLAB users to integrate their Parallel Computing Toolbox with the Kubernetes cluster.
 For help with the following instructions, contact your cluster administrator.
-Before proceeding, ensure that you have the products required for running MATLAB Parallel Server with Kubernetes listed in the [Products Required for Cluster Profile Creation](### Products Required for Cluster Profile Creation) section.
+Before proceeding, ensure that you have the products required for running MATLAB Parallel Server with Kubernetes listed in the [Products Required for Cluster Profile Creation](#products-required-for-cluster-profile-creation) section.
 
 ### Products Required for Cluster Profile Creation
 
