@@ -85,7 +85,7 @@ You must ensure that each MATLAB Parallel Server user has read and write access 
 The account the user uses to run jobs on the cluster must also have read and write access to that folder.
 
 You can create a Kubernetes PersistentVolumeClaim either statically from a PersistentVolume or dynamically from a StorageClass.
-For more information, see the documentation for [PersistentVolumes](https://https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
+For more information, see the documentation for [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
 
 For example, if you have an on-premise Kubernetes cluster, you can create a PersistentVolume from an NFS server that is visible to your cluster.
 Alternatively, if you have a Kubernetes cluster in AWS, you can create a StorageClass to provision storage from an EFS instance.
