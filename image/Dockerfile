@@ -18,7 +18,7 @@ RUN if [ "${INSTALL_MATLAB}" = true ]; then \
         (./mpm install \
         --release="${MATLAB_RELEASE}" \
         --destination=/matlab \
-        --products "$(cat "/product_lists/${MATLAB_RELEASE}.txt")" || \
+        --products $(cat "/product_lists/${MATLAB_RELEASE}.txt") || \
         (echo "MPM Installation Failure. See below for more information:" && \
         cat /tmp/mathworks_root.log && false)) && \
         rm -f mpm mathworks_root.log && \
