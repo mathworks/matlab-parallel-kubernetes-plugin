@@ -5,7 +5,7 @@
 set -o nounset
 
 main() {
-    awk '{print $1}' "${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_JOB_LOCATION}"/*.ip 2>/dev/null
+    cat "${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_JOB_LOCATION}"/*.ip
 }
 
 main

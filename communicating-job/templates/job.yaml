@@ -1,18 +1,24 @@
+# Template for a communicating MATLAB Parallel Server job
 # Copyright 2022-2023 The MathWorks, Inc.
+
+# Loop over tasks and create a Kubernetes job object for each
 {{- range $index, $taskLoc := .Values.parallelServer.taskLocations }}
 apiVersion: batch/v1
 kind: Job
+
+# Label with job and task UIDs to enable MATLAB jobs and tasks to be selected via kubectl
 metadata:
   {{- $taskUID := (index $.Values.taskUIDs $index) | quote | lower }}
   name: {{ $taskUID }}
   labels:
       jobUID: {{ $.Values.jobUID }}
       taskUID: {{ $taskUID }}
+
+# Pod specification
 spec:
+  # Don't restart the job if the container fails
   backoffLimit: 0
-  {{- if ($.Values.automaticJobCleanup | default false) }}
-  ttlSecondsAfterFinished: {{ $.Values.ttlSecondsAfterFinished }}
-  {{- end }}
+
   template:
     metadata:
       name: communicating-matlab-job-pod
@@ -31,22 +37,43 @@ spec:
           requests:
             cpu: {{ $.Values.numThreads }}
 
+        # Define volume names
+        {{- $jobStorageVolume := "data-volume" }}
+        {{- $matlabVolume := "matlab-volume" }}
+
+        # Path at which to mount the job storage location
         {{- $containerJobStorageLocation := "/job_storage" }}
+
+        # If using an image with MATLAB already installed, set the MATLAB root to /matlab
+        # This must match the MATLAB install path on the Docker image
+        {{- $containerMatlabRoot := "/matlab" }}
+
+        # If mounting from a persistent volume, set the MATLAB root to the path under the mount
         {{- $containerMatlabMount := "/matlab" }}
-        {{- $containerMatlabRoot := $containerMatlabMount }}
+        {{- $separateMatlabPVC := ne $.Values.matlabPVC $.Values.jobStoragePVC }}
         {{- if $.Values.matlabPVC }}
-        {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
+          {{- if $separateMatlabPVC }}
+            {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
+          {{- else }}
+            # Job storage and MATLAB installation are in the same PVC, so get MATLAB root from job storage mount location
+            {{- $containerMatlabRoot = printf "%s/%s" $containerJobStorageLocation $.Values.matlabPath }}
+          {{- end }}
         {{- end }}
+
+        # Mount the job storage location onto the container
         volumeMounts:
-        - name: data-volume
+        - name: {{ $jobStorageVolume }}
           mountPath: {{ $containerJobStorageLocation }}
-        {{- if $.Values.matlabPVC }}
-        - name: matlab-volume
+
+        # Optionally mount a MATLAB installation onto the container
+        {{- if (and $.Values.matlabPVC $separateMatlabPVC) }}
+        - name: {{ $matlabVolume }}
           mountPath: {{ $containerMatlabMount }}
           readOnly: true
         {{- end }}
 
         env:
+        # Environment variables required for MATLAB Parallel Server Generic integration
         - name: PARALLEL_SERVER_DECODE_FUNCTION
           value: {{ $.Values.parallelServer.decodeFunction | quote }}
         - name: PARALLEL_SERVER_STORAGE_CONSTRUCTOR
@@ -65,20 +92,30 @@ spec:
           value: {{ $.Values.parallelServer.groupID | quote }}
         - name: PARALLEL_SERVER_DEBUG
           value: {{ $.Values.parallelServer.debug | quote }}
-        - name: MATLAB_ROOT
-          value: {{ $containerMatlabRoot }}
-        - name: NUMBER_OF_TASKS
-          value: {{ len $.Values.taskUIDs | quote }}
-        - name: IS_PRIMARY
-          value: {{ eq $index 0 | quote }}
         - name: PARALLEL_SERVER_USERNAME
           value: {{ $.Values.username }}
+
+        # Path to the MATLAB installation to use
+        - name: MATLAB_ROOT
+          value: {{ $containerMatlabRoot }}
+
+        # The first task is designated as the "primary" worker; this worker launches the MPI ring
+        - name: IS_PRIMARY
+          value: {{ eq $index 0 | quote }}
+        - name: NUMBER_OF_TASKS
+          value: {{ len $.Values.taskUIDs | quote }}
         - name: JOB_UID
           value: {{ $.Values.jobUID }}
+
+        # Timeout for waiting for all pods in the job to start
         - name: TIMEOUT
           value: {{ $.Values.timeout | quote }}
+
+        # Path to logfile
         - name: LOGFILE
           value: {{ $.Values.logfile }}
+
+        # MATLAB licensing environment variables
         - name: MLM_LICENSE_FILE
           value: {{ $.Values.licenseServer | quote }}
         - name: MLM_WEB_LICENSE
@@ -87,6 +124,8 @@ spec:
           value: {{ $.Values.mlmWebID | quote }}
         - name: PARALLEL_SERVER_LICENSE_NUMBER
           value: {{ $.Values.licenseNumber | quote }}
+
+        # If using online licensing, mount the user's MATLAB login token from a Kubernetes secret
         {{- if $.Values.userCredSecretName }}
         - name: MLM_WEB_USER_CRED
           valueFrom:
@@ -94,19 +133,23 @@ spec:
               name: {{ $.Values.userCredSecretName }}
               key: {{ $.Values.userCredKeyName }}
         {{- end }}
+
+        # Put this pod's IP address into an environment variable
+        # Pod IP addresses are needed to launch the MPI ring
         - name: POD_IP
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
 
-      # Set locations of directories to be mounted onto the container
+      # Mount the job storage location from a persistent volume
       volumes:
-      - name: data-volume
+      - name: {{ $jobStorageVolume }}
         persistentVolumeClaim:
           claimName: {{ $.Values.jobStoragePVC }}
 
-      {{- if $.Values.matlabPVC }}
-      - name: matlab-volume
+      # Optionally mount a MATLAB installation from a persistent volume
+      {{- if (and $.Values.matlabPVC $separateMatlabPVC) }}
+      - name: {{ $matlabVolume }}
         persistentVolumeClaim:
           claimName: {{ $.Values.matlabPVC }}
       {{- end }}

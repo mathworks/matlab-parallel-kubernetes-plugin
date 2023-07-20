@@ -10,7 +10,7 @@ function out = inspectPods(obj)
 % out = inspectPods(obj) will return the output as a string.
 %
 
-% Copyright 2022 The MathWorks, Inc.
+% Copyright 2022-2023 The MathWorks, Inc.
 
 mustBeA(obj, {'parallel.job.CJSIndependentJob', ...
     'parallel.job.CJSCommunicatingJob', ...
@@ -36,10 +36,10 @@ else
     commandToRun = "kubectl get pods -l jobUID=" + jobUID;
 end
 
-[~, cmdOut] = runKubeCmd(commandToRun, cluster, job);
+[~, cmdOut] = runKubeCmd(commandToRun, cluster);
 
 if isTask
-    cmdOut = iAppendKubernetesLogs(cmdOut, cluster, job, obj);
+    cmdOut = iAppendKubernetesLogs(cmdOut, cluster, obj);
 end
 
 if nargout == 1
@@ -49,11 +49,11 @@ else
 end
 end
 
-function str = iAppendKubernetesLogs(str, cluster, job, task)
+function str = iAppendKubernetesLogs(str, cluster, task)
 % Append a string with the Kubernetes logs for a task's pod if the pod has
 % started running
 
-podData = iGetPodData(cluster, job, task);
+podData = iGetPodData(cluster, task);
 if numel(podData.items) == 0
     return
 end
@@ -64,14 +64,14 @@ if strcmp(podStatus, 'Pending')
     return
 end
 
-[~, logs] = runKubeCmd("kubectl logs " + podName, cluster, job);
+[~, logs] = runKubeCmd("kubectl logs " + podName, cluster);
 str = sprintf("%s\n\nLogs:\n%s", str, logs);
 end
 
-function podData = iGetPodData(cluster, job, task)
+function podData = iGetPodData(cluster, task)
 % Get struct containing data for a task's Kubernetes pod
 
 commandToRun = "kubectl get pods -o json -l taskUID=" + task.SchedulerID;
-[~, podJsonRaw] = runKubeCmd(commandToRun, cluster, job);
+[~, podJsonRaw] = runKubeCmd(commandToRun, cluster);
 podData = jsondecode(podJsonRaw);
 end

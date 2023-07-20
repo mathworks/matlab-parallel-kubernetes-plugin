@@ -10,11 +10,10 @@
 # Copyright 2023 The MathWorks, Inc.
 set -o nounset
 
-_USER_HOME="/home/${PARALLEL_SERVER_USERNAME}"
 _SSH_KEY_DIR="/ssh-keys"
 _JOB_LOC="${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_JOB_LOCATION}"
 _PUBLIC_SSH_KEY="${_JOB_LOC}/id_rsa.pub"
-_PRIMARY_HOSTNAME_FILE="${_JOB_LOC}/Task1.ip"
+_PRIMARY_IP_FILE="${_JOB_LOC}/Task1.ip"
 _JOB_DONE_FILE="${_JOB_LOC}/done"
 _JOB_ERROR_FILE="${_JOB_LOC}/error"
 
@@ -46,57 +45,52 @@ generateSSHKeys() {
 setupWorker() {
     addUser
     initialChecks
-    setupSSHConfig
-    startSSHD
 }
 
 # The primary worker finds the IP addresses of all workers and launches an MPI ring.
 executePrimaryWorker() {
+    setupSSHConfig
     writeIP
     copyPrivateSSHKey
     waitForIPs
-    getWorkerHostnames
 
     # Replace spaces with commas to obtain format "ADDRESS1,ADDRESS2,...,ADDRESSN"
     local addresses
-    addresses=$(${RUNCMD} /scripts/getPodIPs.sh| xargs | sed 's/ /,/g')
+    addresses=$(${RUNCMD} /scripts/getPodIPs.sh | xargs | sed 's/ /,/g')
 
-    local thisHostname=${HOSTNAME}
+    local thisHostname="${HOSTNAME}"
     unset HOSTNAME
     unset HOST
 
-    local cmd="${MATLAB_ROOT}/bin/mw_mpiexec -hosts ${addresses} ${MATLAB_ROOT}/bin/worker ${PARALLEL_SERVER_MATLAB_ARGS} 2>&1"
+    local cmd="${MATLAB_ROOT}/bin/mw_mpiexec -hosts ${addresses} /scripts/runMatlabWithHostnameOverride.sh ${PARALLEL_SERVER_MATLAB_ARGS} 2>&1"
     logger 4 "Running MATLAB: ${cmd}"
     su "${PARALLEL_SERVER_USERNAME}" -c "${cmd}" >> "${LOGFILE_FULL}"
 
     local exitCode=$?
-    export HOSTNAME=${thisHostname}
+    export HOSTNAME="${thisHostname}"
     logger 0 "Exited MATLAB with code: ${exitCode}"
     exit ${exitCode}
 }
 
 # Secondary workers copy the public SSH key, then wait for the primary worker to finish.
 executeSecondaryWorker() {
-    waitForPrimaryHostname
-    logger 4 "Copying public SSH key to worker home directory"
-    cp "${_PUBLIC_SSH_KEY}" "${_USER_HOME}/.ssh/authorized_keys"
-
-    # Get primary worker's hostname
-    cat "${_PRIMARY_HOSTNAME_FILE}" >> /etc/hosts
-    logger 4 "Wrote primary worker hostname to /etc/hosts"
-
+    startSSHD
+    waitForPrimaryIP
+    copyPublicSSHKey
+    allowSSHFromPrimaryWorker
     writeIP
     runUntilJobComplete
 }
 
 # Create an account and home directory with the name of the user on the client machine.
 addUser() {
-    logger 4 "Adding user ${PARALLEL_SERVER_USERNAME} with uid=${PARALLEL_SERVER_USER_ID}, gid=${PARALLEL_SERVER_GROUP_ID} and home directory ${_USER_HOME}"
+    logger 4 "Adding user ${PARALLEL_SERVER_USERNAME} with uid=${PARALLEL_SERVER_USER_ID}, gid=${PARALLEL_SERVER_GROUP_ID} and home directory ${USER_HOME}"
     groupadd --force --gid "${PARALLEL_SERVER_GROUP_ID}" workers
-    useradd --uid "${PARALLEL_SERVER_USER_ID}" --gid "${PARALLEL_SERVER_GROUP_ID}" --create-home --home-dir "${_USER_HOME}" "${PARALLEL_SERVER_USERNAME}"
+    useradd --uid "${PARALLEL_SERVER_USER_ID}" --gid "${PARALLEL_SERVER_GROUP_ID}" --create-home --home-dir "${USER_HOME}" "${PARALLEL_SERVER_USERNAME}"
     local randomPassword
     randomPassword=$(awk 'BEGIN { srand(); print int(rand()*32768) }' /dev/null)
     echo "${PARALLEL_SERVER_USERNAME}:${randomPassword}" | chpasswd
+    mkdir "${USER_HOME}/.ssh"
 }
 
 # Check this job can run
@@ -113,9 +107,7 @@ initialChecks() {
 
 # Create SSH dir and copy in SSH config
 setupSSHConfig() {
-    local sshDir="${_USER_HOME}/.ssh"
-    logger 4 "Setting SSH directory: ${sshDir}"
-    mkdir "${sshDir}"
+    local sshDir="${USER_HOME}/.ssh"
     cp /config/ssh_config "${sshDir}/config"
 
     # The ssh directory and its contents are required to have specific permissions
@@ -129,28 +121,48 @@ startSSHD() {
     /usr/sbin/sshd
 }
 
-# Create file containing this pod's IP address and hostname
+# Create file containing this pod's IP address
 writeIP() {
     logger 4 "Writing pod IP address to file"
-    su "${PARALLEL_SERVER_USERNAME}" -c "echo ${POD_IP} ${HOSTNAME} > ${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_TASK_LOCATION}.ip"
+
+    # Write IP address to job storage location; the primary worker uses this to start the MPI ring
+    su "${PARALLEL_SERVER_USERNAME}" -c "echo ${POD_IP} > ${PARALLEL_SERVER_STORAGE_LOCATION}/${PARALLEL_SERVER_TASK_LOCATION}.ip"
+
+    # Write IP address to a file on this container's filesystem; this is used later to set MDCE_OVERRIDE_EXTERNAL_HOSTNAME
+    su "${PARALLEL_SERVER_USERNAME}" -c "echo ${POD_IP} > ${INTERNAL_IP_FILE}"
 }
 
 # Copy the private SSH key to the .ssh directory
 copyPrivateSSHKey() {
-    local privateKeyFile="${_USER_HOME}/.ssh/id_rsa"
+    local privateKeyFile="${USER_HOME}/.ssh/id_rsa"
     cp "${_SSH_KEY_DIR}/id_rsa" "${privateKeyFile}"
     chown -R "${PARALLEL_SERVER_USERNAME}" "${privateKeyFile}"
     chmod 600 "${privateKeyFile}"
 }
 
-# Wait for the primary worker to write its hostname to the job storage location
-waitForPrimaryHostname() {
-    logger 4 "Waiting for primary worker hostname file"
-    timeout "${TIMEOUT}" "${RUNCMD}" -c "while [ ! -f \"${_PRIMARY_HOSTNAME_FILE}\" ]; do sleep 1; done"
+# Copy the public key to the .ssh directory
+copyPublicSSHKey() {
+    cp "${_PUBLIC_SSH_KEY}" "${USER_HOME}/.ssh/authorized_keys"
+    logger 4 "Copied public SSH key"
+}
+
+# Wait for the primary worker to write its IP address to the job storage location
+waitForPrimaryIP() {
+    logger 4 "Waiting for primary worker IP address file"
+    timeout "${TIMEOUT}" "${RUNCMD}" -c "while [ ! -f \"${_PRIMARY_IP_FILE}\" ]; do sleep 1; done"
     if [ $? -eq 124  ]; then
-        logger 0 "Error: Timed after ${TIMEOUT} seconds waiting for primary worker hostname file"
-        exit ${EXIT_CODE_SSH_KEY_TIMEOUT}
+        logger 0 "Error: Timed out after ${TIMEOUT} seconds waiting for primary worker IP address file"
+        exit "${EXIT_CODE_PRIMARY_IP_TIMEOUT}"
     fi
+}
+
+# Allow SSH from only the primary worker's IP address
+allowSSHFromPrimaryWorker() {
+    local ip
+    ip=$(cat "${_PRIMARY_IP_FILE}")
+    echo "sshd: ALL" > /etc/hosts.deny
+    echo "sshd: ${ip}" > /etc/hosts.allow
+    logger 4 "Allowed SSH from primary worker"
 }
 
 # Wait up to $TIMEOUT for all secondary pods to start running and share their
@@ -164,20 +176,12 @@ waitForIPs() {
     fi
 }
 
-# Write all worker hostnames and IP addresses to /etc/hosts
-getWorkerHostnames() {
-    for ipFile in "${_JOB_LOC}"/*.ip; do
-        cat "${ipFile}" >> /etc/hosts
-    done
-    logger 4 "Wrote secondary worker hostnames to /etc/hosts"
-}
-
 # Indicate that job is done
 finish() {
     exitCode=${?}
     if [ ${exitCode} -eq 0 ]; then
         indicateDone
-    elif [ ${exitCode} -ne ${EXIT_CODE_WRITE_PERMISSION} ]; then
+    elif [ ${exitCode} -ne "${EXIT_CODE_WRITE_PERMISSION}" ]; then
         indicateError
     fi
     exit ${exitCode}
@@ -207,7 +211,7 @@ runUntilJobComplete() {
         elif [ -f "${_JOB_ERROR_FILE}" ]
         then
             logger 4 "Found file indicating that primary pod errored"
-            exit ${EXIT_CODE_PRIMARY_WORKER_ERROR}
+            exit "${EXIT_CODE_PRIMARY_WORKER_ERROR}"
         fi
         sleep 1
     done
@@ -217,7 +221,7 @@ runUntilJobComplete() {
 logger() {
     local level="$1"
     local message="$2"
-    ${RUNCMD} /scripts/logger.sh "${level}" "$(basename $0)" "${PARALLEL_SERVER_TASK_LOCATION}: ${message}"
+    ${RUNCMD} /scripts/logger.sh "${level}" "$(basename "$0")" "${PARALLEL_SERVER_TASK_LOCATION}: ${message}"
 }
 
 main

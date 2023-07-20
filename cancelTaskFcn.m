@@ -14,7 +14,7 @@ end
 
 % For independent jobs, delete the kubernetes job corresponding to the task
 commandToRun = "kubectl delete job -l taskUID=" + task.SchedulerID;
-[exitCode, result] = runKubeCmd(commandToRun, cluster, task.Parent, false);
+[exitCode, result] = runKubeCmd(commandToRun, cluster, false);
 ok = exitCode == 0;
 if ~ok
     warning("parallelexamples:GenericKubernetes:HelmUninstallFailed", ...

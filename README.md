@@ -1,6 +1,6 @@
 # Parallel Computing Toolbox Plugin for MATLAB Parallel Server with Kubernetes
 
-[![View Plugin for MATLAB Parallel Server with Kubernetes on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://mathworks.com/matlabcentral/fileexchange/120243-plugin-for-matlab-parallel-server-with-kubernetes)
+[![View Plugin for MATLAB Parallel Server with Kubernetes on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://www.mathworks.com/matlabcentral/fileexchange/120243-plugin-for-matlab-parallel-server-with-kubernetes)
 
 Parallel Computing Toolbox&trade; provides the `Generic` cluster type for submitting MATLAB&reg; jobs to a cluster running a third-party scheduler.
 The `Generic` type uses a set of plugin scripts to define how your machine communicates with your scheduler.
@@ -35,7 +35,7 @@ You can only use interactive parallel pools if your Kubernetes cluster is runnin
 ## One-Time Cluster Setup Instructions (Cluster Administrators)
 
 The instructions in this section are for Kubernetes cluster administrators to prepare the cluster to run MATLAB Parallel Server workers.
-Before proceeding, ensure that you have the products required for one-time cluster setup in the [Products Required](### Products Required for Cluster Setup) section.
+Before proceeding, ensure that you have the products required for one-time cluster setup in the [Products Required for Cluster Setup](#products-required-for-cluster-setup) section.
 
 ### Products Required for Cluster Setup
 
@@ -58,10 +58,7 @@ git clone https://github.com/mathworks/matlab-parallel-kubernetes-plugin
 Kubernetes uses namespaces to separate groups of resources.
 For more information, see the documentation for [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) on the Kubernetes website.
 Run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that the jobs are separate from other resources on the cluster.
-
-If users do not specify a custom namespace in the cluster profile, MATLAB Parallel Server workers run in a namespace called `matlab`.
-MATLAB attempts to create the `matlab` namespace if it does not already exist.
-If MATLAB can not create the `matlab` namespace, the workers run in the `default` namespace.
+Users must specify a namespace in the cluster profile.
 
 To create a custom namespace with the name `my-namespace`, run this command:
 ```
@@ -85,7 +82,7 @@ You must ensure that each MATLAB Parallel Server user has read and write access 
 The account the user uses to run jobs on the cluster must also have read and write access to that folder.
 
 You can create a Kubernetes PersistentVolumeClaim either statically from a PersistentVolume or dynamically from a StorageClass.
-For more information, see the documentation for [PersistentVolumes](https://https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
+For more information, see the documentation for [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) on the Kubernetes website.
 
 For example, if you have an on-premise Kubernetes cluster, you can create a PersistentVolume from an NFS server that is visible to your cluster.
 Alternatively, if you have a Kubernetes cluster in AWS, you can create a StorageClass to provision storage from an EFS instance.
@@ -165,16 +162,25 @@ For more information, see the documentations for [Secret](https://kubernetes.io/
 
 The instructions in this section are for MATLAB users to integrate their Parallel Computing Toolbox with the Kubernetes cluster.
 For help with the following instructions, contact your cluster administrator.
-Before proceeding, ensure that you have the products required for running MATLAB Parallel Server with Kubernetes listed in the [Products Required for Cluster Profile Creation](### Products Required for Cluster Profile Creation) section.
+Before proceeding, ensure that you have the products required for running MATLAB Parallel Server with Kubernetes listed in the [Products Required for Cluster Profile Creation](#products-required-for-cluster-profile-creation) section.
 
 ### Products Required for Cluster Profile Creation
 
-- MATLAB and Parallel Computing Toolbox R2019b or newer installed on your computer. For an overview of these software products, see the product pages for [MATLAB](https://mathworks.com/products/matlab.html) and [Parallel Computing Toolbox](https://mathworks.com/products/parallel-computing.html) on the MathWorks website.
-For help with installing MATLAB or Parallel Computing Toolbox, see MathWorks install support: [www.mathworks.com/help/install](https://mathworks.com/help/install/index.html).
-- A MATLAB Parallel Server&trade; license. For an overview, see the product page for [MATLAB Parallel Server](https://mathworks.com/products/matlab-parallel-server.html) on the MathWorks website.
+- MATLAB and Parallel Computing Toolbox R2019b or newer installed on your computer. For an overview of these software products, see the product pages for [MATLAB](https://www.mathworks.com/products/matlab.html) and [Parallel Computing Toolbox](https://www.mathworks.com/products/parallel-computing.html) on the MathWorks website.
+For help with installing MATLAB or Parallel Computing Toolbox, see MathWorks install support: [www.mathworks.com/help/install](https://www.mathworks.com/help/install/index.html).
+- A MATLAB Parallel Server&trade; license. For an overview, see the product page for [MATLAB Parallel Server](https://www.mathworks.com/products/matlab-parallel-server.html) on the MathWorks website.
 - Kubectl installed on your computer. For help with installing Kubectl, see [https://.kubernetes.io/docs/tasks/tools](https://kubernetes.io/docs/tasks/tools/).
 - Helm&reg; installed on your computer. For help with installing Helm, see [https://helm.sh/docs/intro/quickstart](https://helm.sh/docs/intro/quickstart/)
 
+### Cluster Discovery
+
+Starting in R2023a, MATLAB can discover clusters running third-party schedulers such as Kubernetes.
+As a cluster admin, you can create a configuration file that describes how to configure the Parallel Computing Toolbox on the user's machine to submit MATLAB jobs to the cluster.
+The cluster configuration file is a plain text file with the extension `.conf` containing key-value pairs that describe the cluster configuration information.
+The MATLAB client uses the cluster configuration file to create a cluster profile for the user who discovers the cluster.
+Users only need to follow the instructions in the sections below to obtain their user ID and group ID on the cluster.
+You can find an example of a cluster configuration file in [discover/example.conf](discover/example.conf).
+For full details on how to make a cluster running a third-party scheduler discoverable, see the documentation for [Configure for Third-Party Scheduler Cluster Discovery](https://www.mathworks.com/help/matlab-parallel-server/configure-for-cluster-discovery.html).
 
 ### Setup instructions
 
@@ -208,7 +214,7 @@ c = parallel.cluster.Generic;
 #### 4. Configure Cluster Properties
 
 This table lists the properties that you must specify to configure the Generic cluster profile.
-For a full list of cluster properties, see the documentation for [`parallel.Cluster`](https://mathworks.com/help/parallel-computing/parallel.cluster.html) on the MathWorks website.
+For a full list of cluster properties, see the documentation for [`parallel.Cluster`](https://www.mathworks.com/help/parallel-computing/parallel.cluster.html) on the MathWorks website.
 
 **Property**            | **Description**
 ------------------------|----------------
@@ -263,7 +269,7 @@ getClusterIDs(hostname, username, 'IdentityFile', filename, 'IdentityFileHasPass
 ```
 
 All authentication modes supported by `RemoteClusterAccess` are supported.
-For more information, see the documentation for [`RemoteClusterAccess`](https://mathworks.com/help/parallel-computing/remoteclusteraccess.html) on the MathWorks website.
+For more information, see the documentation for [`RemoteClusterAccess`](https://www.mathworks.com/help/parallel-computing/remoteclusteraccess.html) on the MathWorks website.
 
 #### 6. Configure Additional Properties
 
@@ -283,6 +289,7 @@ You must specify these `AdditionalProperties`:
 ----------------------------|---------------|----------------
 `Image`                     | `String`      | Name of the Docker image or (URL, if you are hosting the image remotely).
 `ImagePullPolicy`           | `String`      | Image availability. If the image is available locally on the cluster, set this property to `"Never"`. If you are hosting the image remotely, set this property to `"Always"`.
+`Namespace`                 | `String`      | Kubernetes namespace to use.
 `JobStoragePVC`             | `String`      | Name of the PersistentVolumeClaim to use for storing job data.
 `JobStoragePath`            | `String`      | Path to the folder to use for storing job data within the PersistentVolume.
 `ClusterUserID`             | Numeric       | ID of your user account on the cluster.
@@ -299,11 +306,10 @@ These additional properties are optional:
 
 **Property Name**         | **Data Type** | **Description**
 --------------------------|---------------|----------------
-`Namespace`                 | `String`   | Kubernetes namespace. If you do not specify this property, MATLAB uses the `matlab` namespace. If MATLAB cannot create the `matlab` namespace, the workers run in the `default` namespace.
-`KubeConfig`                | `String`   | Location of the `config` file that `kubectl` uses to access your cluster. For more information, see the documentation for the [Kubernetes `config` file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) on the Kubernetes website. If you do not specify this property, MATLAB uses the default location (`$HOME/.kube/config`).
-`KubeContext`               | `String`   | Context within your Kubernetes `config` file if that file has multiple clusters or user configurations. For more information, see the documentation for [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) on the Kubernetes website. If you do not set this property, MATLAB uses the default context.
-`LicenseServer`             | `String`   | Port and hostname of a machine running a Network License Manager in the format `port@hostname`.
-`Timeout`                   | Numeric   | Time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. The default value is 600.
+`KubeConfig`              | `String`      | Location of the `config` file that `kubectl` uses to access your cluster. For more information, see the documentation for the [Kubernetes `config` file](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/) on the Kubernetes website. If you do not specify this property, MATLAB uses the default location (`$HOME/.kube/config`).
+`KubeContext`             | `String`      | Context within your Kubernetes `config` file if that file has multiple clusters or user configurations. For more information, see the documentation for [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) on the Kubernetes website. If you do not set this property, MATLAB uses the default context.
+`LicenseServer`           | `String`      | Port and hostname of a machine running a Network License Manager in the format `port@hostname`.
+`Timeout`                 | Numeric       | Time in seconds that MATLAB waits for all worker pods to start running after the first worker starts in a pool or SPMD job. The default value is 600.
 
 #### 7. Save New Profile
 
@@ -364,7 +370,7 @@ c = parcluster("myKubernetesCluster")
 ### Submit Work for Batch Processing
 
 The `batch` command runs a MATLAB script or function on a worker on the cluster.
-For more information about batch processing, see the documentation for [batch](https://mathworks.com/help/parallel-computing/batch.html) on the MathWorks website.
+For more information about batch processing, see the documentation for [batch](https://www.mathworks.com/help/parallel-computing/batch.html) on the MathWorks website.
 
 ```matlab
 % Create a job and submit it to the cluster
@@ -414,7 +420,7 @@ To resolve the issue, use fewer workers for your batch pool job, increase the ti
 A parallel pool (parpool) is a group of MATLAB workers on which you can interactively run work.
 When you run the `parpool` command, MATLAB submits a special job to the cluster to start the workers.
 Once the workers start, your MATLAB session connects to them.
-For more information about parpools, see the documentation for [parpool](https://mathworks.com/help/parallel-computing/parpool.html) on the MathWorks website.
+For more information about parpools, see the documentation for [parpool](https://www.mathworks.com/help/parallel-computing/parpool.html) on the MathWorks website.
 
 ```matlab
 % Open a parallel pool on the cluster. This command
