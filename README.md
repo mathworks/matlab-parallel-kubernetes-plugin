@@ -58,7 +58,7 @@ git clone https://github.com/mathworks/matlab-parallel-kubernetes-plugin
 Kubernetes uses namespaces to separate groups of resources.
 For more information, see the documentation for [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) on the Kubernetes website.
 Run MATLAB Parallel Server jobs inside a specific namespace on your cluster so that the jobs are separate from other resources on the cluster.
-Users must specify this namespace in the cluster profile.
+Users must specify a namespace in the cluster profile.
 
 To create a custom namespace with the name `my-namespace`, run this command:
 ```
@@ -174,11 +174,11 @@ For help with installing MATLAB or Parallel Computing Toolbox, see MathWorks ins
 
 ### Cluster Discovery
 
-Since version R2023a, MATLAB can discover clusters running third-party schedulers such as Kubernetes.
+Starting in R2023a, MATLAB can discover clusters running third-party schedulers such as Kubernetes.
 As a cluster admin, you can create a configuration file that describes how to configure the Parallel Computing Toolbox on the user's machine to submit MATLAB jobs to the cluster.
 The cluster configuration file is a plain text file with the extension `.conf` containing key-value pairs that describe the cluster configuration information.
-The MATLAB client will use the cluster configuration file to create a cluster profile for the user who discovers the cluster.
-Therefore, users will not need to follow the instructions in the sections below except to obtain their user ID and group ID on the cluster.
+The MATLAB client uses the cluster configuration file to create a cluster profile for the user who discovers the cluster.
+Users only need to follow the instructions in the sections below to obtain their user ID and group ID on the cluster.
 You can find an example of a cluster configuration file in [discover/example.conf](discover/example.conf).
 For full details on how to make a cluster running a third-party scheduler discoverable, see the documentation for [Configure for Third-Party Scheduler Cluster Discovery](https://www.mathworks.com/help/matlab-parallel-server/configure-for-cluster-discovery.html).
 
