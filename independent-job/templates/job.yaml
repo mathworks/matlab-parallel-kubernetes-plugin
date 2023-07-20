@@ -1,18 +1,24 @@
+# Template for an independent MATLAB Parallel Server job
 # Copyright 2022-2023 The MathWorks, Inc.
+
+# Loop over tasks and create a Kubernetes job object for each
 {{- range $index, $taskLoc := .Values.parallelServer.taskLocations }}
 apiVersion: batch/v1
 kind: Job
+
+# Label with job and task UIDs to enable MATLAB jobs and tasks to be selected via kubectl
 metadata:
   {{- $taskUID := (index $.Values.taskUIDs $index) | quote | lower }}
   name: {{ $taskUID }}
   labels:
     jobUID: {{ $.Values.jobUID }}
     taskUID: {{ $taskUID }}
+
+# Pod specification
 spec:
+  # Don't restart the job if the container fails
   backoffLimit: 0
-  {{- if ($.Values.automaticJobCleanup | default true) }}
-  ttlSecondsAfterFinished: {{ $.Values.ttlSecondsAfterFinished }}
-  {{- end }}
+
   template:
     metadata:
       name: independent-matlab-job-pod
@@ -21,9 +27,12 @@ spec:
           taskUID: {{ $taskUID }}
     spec:
       restartPolicy: Never
+
+      # Independent worker pods do not need to run as root, so run as a specified user
       securityContext:
         runAsUser: {{ $.Values.parallelServer.userID }}
         runAsGroup: {{ $.Values.parallelServer.groupID }}
+
       containers:
       - name: independent-matlab-job
         image: {{ $.Values.image | quote }}
@@ -34,22 +43,43 @@ spec:
           requests:
             cpu: {{ $.Values.numThreads }}
 
+        # Define volume names
+        {{- $jobStorageVolume := "data-volume" }}
+        {{- $matlabVolume := "matlab-volume" }}
+
+        # Set the path at which to mount the job storage location
         {{- $containerJobStorageLocation := "/job_storage" }}
+
+        # If using an image with MATLAB already installed, set the MATLAB root to /matlab
+        # This must match the MATLAB install path on the Docker image
+        {{- $containerMatlabRoot := "/matlab" }}
+
+        # If mounting from a persistent volume, set the MATLAB root to the path under the mount
         {{- $containerMatlabMount := "/matlab" }}
-        {{- $containerMatlabRoot := $containerMatlabMount }}
+        {{- $separateMatlabPVC := ne $.Values.matlabPVC $.Values.jobStoragePVC }}
         {{- if $.Values.matlabPVC }}
-        {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
-        {{- end}}
+          {{- if $separateMatlabPVC }}
+            {{- $containerMatlabRoot = printf "%s/%s" $containerMatlabMount $.Values.matlabPath }}
+          {{- else }}
+            # Job storage and MATLAB installation are in the same PVC, so get MATLAB root from job storage mount location
+            {{- $containerMatlabRoot = printf "%s/%s" $containerJobStorageLocation $.Values.matlabPath }}
+          {{- end }}
+        {{- end }}
+
+        # Mount the job storage location onto the container
         volumeMounts:
-        - name: data-volume
+        - name: {{ $jobStorageVolume }}
           mountPath: {{ $containerJobStorageLocation }}
-        {{- if $.Values.matlabPVC }}
-        - name: matlab-volume
+
+        # Optionally mount a MATLAB installation onto the container
+        {{- if (and $.Values.matlabPVC $separateMatlabPVC) }}
+        - name: {{ $matlabVolume }}
           mountPath: {{ $containerMatlabMount }}
           readOnly: true
         {{- end }}
 
         env:
+        # Environment variables required for MATLAB Parallel Server Generic integration
         - name: PARALLEL_SERVER_DECODE_FUNCTION
           value: {{ $.Values.parallelServer.decodeFunction | quote }}
         - name: PARALLEL_SERVER_STORAGE_CONSTRUCTOR
@@ -68,10 +98,16 @@ spec:
           value: {{ $.Values.parallelServer.debug | quote }}
         - name: PARALLEL_SERVER_USERNAME
           value: {{ $.Values.username }}
+
+        # Path to the MATLAB installation to use
         - name: MATLAB_ROOT
           value: {{ $containerMatlabRoot }}
+
+        # Path to logfile
         - name: LOGFILE
           value: {{ index $.Values.taskLogs $index }}
+
+        # MATLAB licensing environment variables
         - name: MLM_LICENSE_FILE
           value: {{ $.Values.licenseServer | quote }}
         - name: MLM_WEB_LICENSE
@@ -80,6 +116,8 @@ spec:
           value: {{ $.Values.mlmWebID | quote }}
         - name: PARALLEL_SERVER_LICENSE_NUMBER
           value: {{ $.Values.licenseNumber | quote }}
+
+        # If using online licensing, mount the user's MATLAB login token from a Kubernetes secret
         {{- if $.Values.userCredSecretName }}
         - name: MLM_WEB_USER_CRED
           valueFrom:
@@ -88,14 +126,15 @@ spec:
               key: {{ $.Values.userCredKeyName }}
         {{- end }}
 
-      # Set locations of directories to be mounted onto the container
+      # Mount the job storage location from a persistent volume
       volumes:
-      - name: data-volume
+      - name: {{ $jobStorageVolume }}
         persistentVolumeClaim:
           claimName: {{ $.Values.jobStoragePVC }}
 
-      {{- if $.Values.matlabPVC }}
-      - name: matlab-volume
+      # Optionally mount a MATLAB installation from a persistent volume
+      {{- if (and $.Values.matlabPVC $separateMatlabPVC) }}
+      - name: {{ $matlabVolume }}
         persistentVolumeClaim:
           claimName: {{ $.Values.matlabPVC }}
       {{- end }}

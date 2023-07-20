@@ -14,6 +14,7 @@ function iCheckRequiredAdditionalProperties(cluster)
 
 iCheckCharOrString(cluster, "Image");
 iCheckCharOrString(cluster, "ImagePullPolicy");
+iCheckCharOrString(cluster, "Namespace");
 iCheckCharOrString(cluster, "JobStoragePVC");
 iCheckCharOrString(cluster, "JobStoragePath");
 iCheckInt(cluster, "ClusterUserID");
@@ -25,7 +26,6 @@ function iCheckOptionalAdditionalProperties(cluster)
 % if type mismatches are found.
 
 iCheckOptional(cluster, "JobStorageServer", @iCheckCharOrString);
-iCheckOptional(cluster, "Namespace", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeConfig", @iCheckCharOrString);
 iCheckOptional(cluster, "KubeContext", @iCheckCharOrString);
 iCheckOptional(cluster, "Timeout", @iCheckInt);

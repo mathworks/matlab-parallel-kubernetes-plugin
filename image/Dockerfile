@@ -26,8 +26,10 @@ RUN if [ "${INSTALL_MATLAB}" = true ]; then \
         fi
 
 # Install OpenSSH
-RUN apt-get update && apt-get install --yes --no-install-recommends apt-transport-https
-RUN apt-get install --yes --no-install-recommends openssh-client openssh-server && \
+RUN apt-get update && apt-get install --yes --no-install-recommends apt-transport-https && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --yes --no-install-recommends openssh-client openssh-server && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
 
@@ -51,6 +53,9 @@ COPY ssh_config /config/ssh_config
 
 # Copy shell scripts
 COPY scripts/*.sh /scripts/
+
+# Ensure wrapper script can be run by non-root user
+RUN chmod 755 /scripts/runMatlabWithHostnameOverride.sh
 
 # Define entrypoint
 ENTRYPOINT ["/bin/sh"]

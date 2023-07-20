@@ -38,5 +38,5 @@ if cluster.RequiresOnlineLicensing
         environmentProperties);
 end
 
-runKubeCmd(cmd, cluster, job);
+runKubeCmd(cmd, cluster);
 end

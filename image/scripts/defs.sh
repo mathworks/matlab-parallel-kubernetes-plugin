@@ -13,7 +13,12 @@ main() {
     export EXIT_CODE_TIMEOUT=3
     export EXIT_CODE_PRIMARY_WORKER_ERROR=4
     export EXIT_CODE_MISSING_MATLAB=5
-    export EXIT_CODE_SSH_KEY_TIMEOUT=6
+    export EXIT_CODE_PRIMARY_IP_TIMEOUT=6
+    export EXIT_CODE_MISSING_JOB_STORAGE=7
+
+    # Location of home and IP address file for communicating job pods
+    export USER_HOME="/home/${PARALLEL_SERVER_USERNAME}"
+    export INTERNAL_IP_FILE="${USER_HOME}/ip"
 
     setupLogging
 }

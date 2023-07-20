@@ -1,6 +1,6 @@
 function ok = cancelJobFcn(cluster, job)
-% Cancel a job submitted to a Kubernetes cluster by uninstalling all helm
-% releases associated with the job.
+% Cancel a job submitted to a Kubernetes cluster by uninstalling the helm
+% release associated with the job.
 
 % Copyright 2022-2023 The MathWorks, Inc.
 
@@ -9,24 +9,14 @@ if cluster.getJobClusterData(job).HelmUninstalled
     return
 end
 
-releases = cluster.getJobClusterData(job).HelmRelease;
-
-% If a communicating job is not yet running or finished, the helm releases
-% for secondary workers may not have been created yet, so don't warn if
-% these releases cannot be uninstalled
-warnIfFailed = true(size(releases));
-if ~strcmpi(job.Type, 'independent') && strcmp(job.Tasks(1).State, 'pending')
-    warnIfFailed(2:end) = false;
-end
-
-exitCodes = arrayfun(@(idx) iUninstallRelease(cluster, job, releases(idx), warnIfFailed(idx)), ...
-    1:numel(releases));
+release = cluster.getJobClusterData(job).HelmRelease;
+exitCode = iUninstallRelease(cluster, release);
 
 if cluster.RequiresOnlineLicensing
     iDeleteUserCredSecret(cluster, job);
 end
 
-ok = all(exitCodes(warnIfFailed) == 0);
+ok = exitCode == 0;
 if ok
     iSetUninstalledFlag(cluster, job, true);
 end
@@ -38,10 +28,10 @@ data.HelmUninstalled = flag;
 cluster.setJobClusterData(job, data);
 end
 
-function exitCode = iUninstallRelease(cluster, job, release, warnIfFailed)
+function exitCode = iUninstallRelease(cluster, release)
 commandToRun = "helm uninstall " + release;
-[exitCode, result] = runKubeCmd(commandToRun, cluster, job, false);
-if exitCode ~= 0 && warnIfFailed
+[exitCode, result] = runKubeCmd(commandToRun, cluster, false);
+if exitCode ~= 0
     warning("parallelexamples:GenericKubernetes:HelmUninstallFailed", ...
         "Failed to uninstall Helm release: %s", result);
 end
@@ -50,5 +40,5 @@ end
 function exitCode = iDeleteUserCredSecret(cluster, job)
 secretName = cluster.getJobClusterData(job).UserCredSecret;
 commandToRun = "kubectl delete secret " + secretName;
-exitCode = runKubeCmd(commandToRun, cluster, job, false);
+exitCode = runKubeCmd(commandToRun, cluster, false);
 end

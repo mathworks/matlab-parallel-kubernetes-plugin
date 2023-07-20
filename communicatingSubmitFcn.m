@@ -28,5 +28,5 @@ cmd = appendHelmSetting(cmd, "parallelServer.taskLocations", ...
 cmd = appendHelmSetting(cmd, "logfile", getRelativeLogLocation(cluster, job));
 cmd = appendHelmSetting(cmd, "timeout", getTimeout(cluster));
 
-runKubeCmd(cmd, cluster, job);
+runKubeCmd(cmd, cluster);
 end
