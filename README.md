@@ -2,6 +2,9 @@
 
 [![View Plugin for MATLAB Parallel Server with Kubernetes on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://www.mathworks.com/matlabcentral/fileexchange/120243-plugin-for-matlab-parallel-server-with-kubernetes)
 
+:warning: **Starting in R2024a, the Parallel Computing Toolbox Plugin for MATLAB Parallel Server with Kubernetes is no longer supported. Use the MATLAB Parallel Server in Kubernetes reference architecture instead. To learn more, see the [MATLAB Parallel Server in Kubernetes](https://github.com/mathworks-ref-arch/matlab-parallel-server-on-kubernetes) GitHub repository.**
+---
+
 Parallel Computing Toolbox&trade; provides the `Generic` cluster type for submitting MATLAB&reg; jobs to a cluster running a third-party scheduler.
 The `Generic` type uses a set of plugin scripts to define how your machine communicates with your scheduler.
 You can customize the plugin scripts to configure how MATLAB interacts with the scheduler to best suit your cluster setup and support custom submission options.
@@ -53,7 +56,7 @@ Alternatively, to clone this repository to your computer with Git software, ente
 git clone https://github.com/mathworks/matlab-parallel-kubernetes-plugin
 ```
 
-#### 2. Create Kubernetes Namespace and Limit Resources
+#### 2. Create Kubernetes Namespace
 
 Kubernetes uses namespaces to separate groups of resources.
 For more information, see the documentation for [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) on the Kubernetes website.
@@ -64,17 +67,6 @@ To create a custom namespace with the name `my-namespace`, run this command:
 ```
 kubectl create namespace my-namespace
 ```
-
-##### Limit Kubernetes Pods in Namespace
-
-You can limit the number of pods that can run simultaneously in a namespace.
-Each MATLAB Parallel Server worker requires one pod.
-By limiting the number of pods to run simultaneously, you can limit the number of MATLAB Parallel Server workers that run simultaneously.
-If your MATLAB Parallel Server license has fewer than 200 workers, limit the number of pods to the number of MATLAB Parallel Server workers by running this command:
-```
-kubectl create resourcequota quota-name --namespace my-namespace --hard pods=numWorkers
-```
-`quota-name` is the name of the resource quota, `my-namespace` is the namespace, and `numWorkers` is the number of MATLAB Parallel Server workers on your license.
 
 #### 3. Set Up PersistentVolumeClaim for Job Storage
 
@@ -140,7 +132,7 @@ To build a Docker image with a built-in MATLAB and MATLAB Parallel Server instal
 
 To build the image, run this command from within the `image/` folder:
 ```
-docker build . -t image-name --build-arg MATLAB_RELEASE=release --build-arg INSTALL_MATLAB=true --build-arg LICENSE_SERVER=port@hostname ADDITIONAL_PRODUCTS="Product1 Product2"
+docker build . -t image-name --build-arg MATLAB_RELEASE=release --build-arg INSTALL_MATLAB=true
 ```
 
 By default, this command installs all MATLAB toolboxes included with a MATLAB Parallel Server license.
@@ -457,4 +449,4 @@ The license is available in the [license.txt](license.txt) file in this reposito
 
 If you require assistance or have a request for additional features or capabilities, please contact [MathWorks Technical Support](https://www.mathworks.com/support/contact_us.html).
 
-Copyright 2022-2023 The MathWorks, Inc.
+Copyright 2022-2024 The MathWorks, Inc.
