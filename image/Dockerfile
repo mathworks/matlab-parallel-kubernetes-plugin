@@ -1,5 +1,5 @@
 # Copyright 2022-2023 The MathWorks, Inc.
-ARG MATLAB_RELEASE=r2023a
+ARG MATLAB_RELEASE=r2023b
 ARG MATLAB_DEPS_IMAGE=mathworks/matlab-deps
 FROM ${MATLAB_DEPS_IMAGE}:${MATLAB_RELEASE}
 LABEL maintainer="The MathWorks"
@@ -37,6 +37,14 @@ RUN apt-get update && apt-get install --yes --no-install-recommends openssh-clie
 RUN if [ "${MATLAB_RELEASE}" = "r2023a" ]; then \
         apt-get update && \
         apt-get install --yes --no-install-recommends libunwind8 && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*; \
+        fi
+
+# Install libatomic on R2023b - needed by mpich 4
+RUN if [ "${MATLAB_RELEASE}" = "r2023b" ]; then \
+        apt-get update && \
+        apt-get install --yes --no-install-recommends libatomic1 && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*; \
         fi
